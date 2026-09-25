@@ -29,3 +29,12 @@ OpenAPIとZodを独立した正本として編集する運用は採用しない�
 ## Markdownの境界
 
 Markdownは、業務背景、受け入れ条件、ADR、用語集などの説明に使う。API、DB、画面項目の構造化情報をMarkdownへ重複して記述しない。
+
+## DocumentとAPIの関連付け
+
+DocumentからAPIへ辿れることを重視し、関連付けには2種類の情報を使う。
+
+- `GET /orders`のようなAPI物理名、または将来の`operationId`: DocumentとAPIを自動関連付けするキー
+- `[OpenAPI contract](...)`のようなMarkdownリンク: 正本ファイルへの参照元を明示し、参照切れを検証するリンク
+
+したがって、OpenAPIへのMarkdownリンクがなくてもAPI物理名があれば関連APIを表示できる。一方、API物理名もないDocumentは、業務Documentとして表示し、特定APIとの自動関連付けは行わない。
