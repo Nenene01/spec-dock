@@ -48,4 +48,7 @@ test("build creates a browsable HTML artifact", async () => {
   assert.match(html, /customerId/);
   assert.match(html, /\/orders/);
   assert.match(html, /OrderResponse/);
+  assert.match(html, /Search models/);
+  assert.match(html, /erDiagram/);
+  await access(join(site, "schema.mmd"));
 });

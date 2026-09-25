@@ -156,6 +156,23 @@ function parseZodSchemas(text, file) {
   return schemas;
 }
 
+function buildMermaidEr(models) {
+  const lines = ["erDiagram"];
+  const seen = new Set();
+  for (const model of models) {
+    for (const field of model.fields.filter((item) => item.isRelation)) {
+      const target = field.type;
+      if (!models.some((item) => item.name === target)) continue;
+      const relationKey = [model.name, target].sort().join(":");
+      if (seen.has(relationKey)) continue;
+      seen.add(relationKey);
+      const cardinality = field.isArray ? "||--o{" : "}o--||";
+      lines.push(`  ${model.name} ${cardinality} ${target} : ${field.name}`);
+    }
+  }
+  return [...new Set(lines)].join("\n");
+}
+
 async function scan() {
   const files = await walk(project);
   const prismaFiles = files.filter((file) => file.endsWith(".prisma"));
@@ -222,10 +239,12 @@ async function build() {
   const model = await loadScan();
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   await mkdir(siteDir, { recursive: true });
-  const modelCards = model.prisma.models.map((item) => `<article><h3>${item.name}</h3><p>${item.description || "No description"}</p><table><thead><tr><th>Field</th><th>Type</th><th>Flags</th><th>Description</th></tr></thead><tbody>${item.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}${field.isArray ? "[]" : ""}${field.isOptional ? "?" : ""}</td><td>${[field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")}</td><td>${field.description || ""}</td></tr>`).join("")}</tbody></table></article>`).join("");
+  const mermaid = buildMermaidEr(model.prisma.models);
+  await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
+  const modelCards = model.prisma.models.map((item) => `<article class="model-card" data-search="${item.name} ${item.description} ${item.fields.map((field) => `${field.name} ${field.description}`).join(" ")}"><h3>${item.name}</h3><p>${item.description || "No description"}</p><table><thead><tr><th>Field</th><th>Type</th><th>Flags</th><th>Description</th></tr></thead><tbody>${item.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}${field.isArray ? "[]" : ""}${field.isOptional ? "?" : ""}</td><td>${[field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")}</td><td>${field.description || ""}</td></tr>`).join("")}</tbody></table></article>`).join("");
   const operationRows = model.openapi.operations.map((item) => `<tr><td><code>${item.method}</code></td><td><code>${item.path}</code></td><td>${item.summary || ""}</td><td>${item.response || ""}</td><td>${item.schema || ""}</td></tr>`).join("");
-  const zodCards = model.zod.schemas.map((schema) => `<article><h3>${schema.name}</h3><p><code>${schema.file}</code></p><table><thead><tr><th>Field</th><th>Zod type</th><th>Description</th></tr></thead><tbody>${schema.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}</td><td>${field.description}</td></tr>`).join("")}</tbody></table></article>`).join("");
-  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>API operations: ${model.openapi.operations.length}</span><span>Zod schemas: ${model.zod.schemas.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>API</h2><table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Response</th><th>Zod schema</th></tr></thead><tbody>${operationRows || "<tr><td colspan=5>No API operations detected.</td></tr>"}</tbody></table><h2>Zod</h2>${zodCards || "<p>No Zod schemas detected.</p>"}<h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main>`;
+  const zodCards = model.zod.schemas.map((schema) => `<article class="zod-card" data-search="${schema.name} ${schema.fields.map((field) => `${field.name} ${field.description}`).join(" ")}"><h3>${schema.name}</h3><p><code>${schema.file}</code></p><table><thead><tr><th>Field</th><th>Zod type</th><th>Description</th></tr></thead><tbody>${schema.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}</td><td>${field.description}</td></tr>`).join("")}</tbody></table></article>`).join("");
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}.search{width:100%;box-sizing:border-box;padding:10px;margin:12px 0 20px;font:inherit}.hidden{display:none}.mermaid{padding:16px;border:1px solid #888;border-radius:8px;white-space:pre;overflow:auto}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p><input class="search" id="search" placeholder="Search models, fields, schemas, and descriptions..." /></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>API operations: ${model.openapi.operations.length}</span><span>Zod schemas: ${model.zod.schemas.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>API</h2><table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Response</th><th>Zod schema</th></tr></thead><tbody>${operationRows || "<tr><td colspan=5>No API operations detected.</td></tr>"}</tbody></table><h2>ER Diagram</h2><pre class="mermaid">${mermaid}</pre><p><a href="schema.mmd">Download Mermaid source</a></p><h2>Zod</h2>${zodCards || "<p>No Zod schemas detected.</p>"}<h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main><script>const input=document.querySelector('#search');input.addEventListener('input',()=>{const query=input.value.toLowerCase();document.querySelectorAll('[data-search]').forEach((element)=>element.classList.toggle('hidden',query&&!element.dataset.search.toLowerCase().includes(query)));});</script>`;
   await writeFile(join(siteDir, "index.html"), html);
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
   console.log(`Built SpecDock site: ${join(siteDir, "index.html")}`);
