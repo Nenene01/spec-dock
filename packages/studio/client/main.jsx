@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { HiDatabase, HiDocumentText, HiOutlineCode, HiOutlineEye, HiOutlineShare, HiOutlineViewBoards, HiShare, HiViewGrid } from "react-icons/hi";
 import dagre from "@dagrejs/dagre";
 import { Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, Handle, Panel, Position, ReactFlow, ReactFlowProvider, getBezierPath, useEdgesState, useNodesState, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -7,9 +8,9 @@ import "./styles.css";
 
 const model = window.__SPEC_DOCK__;
 const erSource = window.__SPEC_DOCK_ER__;
-const iconPaths = { grid: "<rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/>", doc: "<path d='M6 3h8l4 4v14H6z'/><path d='M14 3v5h5M9 13h6M9 17h6'/>", api: "<path d='M5 5h5v5H5zM14 14h5v5h-5zM10 7h4a2 2 0 0 1 2 2v5M7.5 10v3a2 2 0 0 0 2 2H14'/>", db: "<ellipse cx='12' cy='5.5' rx='7.5' ry='3'/><path d='M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6'/>", diagram: "<rect x='3' y='4' width='6' height='5' rx='1'/><rect x='15' y='4' width='6' height='5' rx='1'/><rect x='9' y='15' width='6' height='5' rx='1'/><path d='M9 6.5h6M6 9v3a2 2 0 0 0 2 2h1M18 9v3a2 2 0 0 1-2 2h-1'/>", split: "<path d='M12 3v18M3 6h6M3 12h6M3 18h6M15 6h6M15 12h6M15 18h6'/>", panel: "<path d='M4 5h16v14H4zM4 9h16M9 9v10'/>", panelLeft: "<path d='M4 5h16v14H4zM9 5v14'/>", eye: "<path d='M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5z'/><circle cx='12' cy='12' r='2.5'/>", code: "<path d='M8 5l-6 7 6 7M16 5l6 7-6 7M14 3l-4 18'/>" };
 const esc = (value) => String(value ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-function Icon({ name }) { return <svg className="icon" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: iconPaths[name] || iconPaths.grid }} />; }
+const iconComponents = { grid: HiViewGrid, doc: HiDocumentText, api: HiShare, db: HiDatabase, diagram: HiOutlineShare, panelLeft: HiOutlineViewBoards, eye: HiOutlineEye, code: HiOutlineCode };
+function Icon({ name }) { const Component = iconComponents[name] || HiViewGrid; return <Component className="icon" aria-hidden="true" />; }
 function parseRoute(route) { const [view, id] = (route || "").split("/"); return { view, id }; }
 function titleOf(route) { const { view, id } = parseRoute(route); if (view === "overview") return "概要"; if (view === "er") return "ER図"; if (view === "api") return id ? `${model.openapi.operations[Number(id)]?.method} ${model.openapi.operations[Number(id)]?.path}` : "API"; if (view === "database") return id ? model.prisma.models[Number(id)]?.name : "データモデル"; if (view === "zod") return id ? model.zod.schemas[Number(id)]?.name : "データ型"; return model.markdown.documents[Number(id)]?.title || "Document"; }
 function Table({ headers, rows, empty = "データはありません" }) { return rows.length ? <table><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows}</tbody></table> : <p className="empty">{empty}</p>; }
