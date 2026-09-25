@@ -1,5 +1,11 @@
 {
   "api": {
     "mode": "code-first"
+  },
+  "sources": {
+    "prisma": ["prisma/schema.prisma"],
+    "openapi": ["openapi.yaml"],
+    "zod": ["src/schemas"],
+    "documents": ["specs"]
   }
 }

@@ -30,6 +30,8 @@ test("scan finds project source categories and Prisma models", async () => {
   assert.equal(scan.openapi.operations[0].path, "/orders");
   assert.equal(scan.openapi.operations[0].schema, "OrderListResponse");
   assert.equal(scan.config.api.mode, "code-first");
+  assert.deepEqual(scan.sourceCatalog.zod, ["src/schemas"]);
+  assert.deepEqual(scan.sourceCatalog.documents, ["specs"]);
   assert.ok(scan.zod.schemas.some((schema) => schema.name === "OrderDetail"));
   assert.equal(scan.zod.schemas.find((schema) => schema.name === "OrderSummary").fields[0].description, "注文ID");
   assert.ok(scan.markdown.documents.some((document) => document.title === "注文管理"));

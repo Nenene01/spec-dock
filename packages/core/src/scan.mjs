@@ -48,11 +48,19 @@ export async function scanProject(project, outDir) {
   for (const document of documents) {
     document.relatedOperations = operations.filter((operation) => document.apiRefs?.some((reference) => reference.method === operation.method && reference.path === operation.path)).map((operation) => `${operation.method} ${operation.path}`);
   }
+  const configuredSources = config.sources ?? {};
+  const sourceCatalog = {
+    prisma: configuredSources.prisma?.length ? configuredSources.prisma : prismaFiles.map((file) => relative(project, file)),
+    openapi: configuredSources.openapi?.length ? configuredSources.openapi : openapiFiles.map((file) => relative(project, file)),
+    zod: configuredSources.zod?.length ? configuredSources.zod : [...new Set(schemas.map((schema) => schema.file.replace(/\/[^/]+$/, "")))],
+    documents: configuredSources.documents?.length ? configuredSources.documents : [...new Set(documents.map((document) => document.file.split("/")[0]))],
+  };
   const model = {
     version: 1,
     project: ".",
     scannedAt: new Date().toISOString(),
     config,
+    sourceCatalog,
     prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
     zod: { files: zodFiles.map((file) => relative(project, file)), schemas },
     openapi: { files: openapiFiles.map((file) => relative(project, file)), operations, schemas: openapiSchemas, errors: openapiErrors },
