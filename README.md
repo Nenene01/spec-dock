@@ -47,6 +47,7 @@ specdock scan   # ソースを解析して中間JSONを生成
 specdock check  # ソース間の不整合を検出
 specdock build  # Studioが読む成果物を生成
 specdock serve  # ビルドしてStudioを起動
+specdock dev    # Studioを起動し、ソース変更を監視
 ```
 
 詳細は[Phase 0計画](docs/phase-0-plan.md)を参照してください。
@@ -59,6 +60,9 @@ npm run scan -- --project examples/order-management
 npm run check -- --project examples/order-management --format json
 npm run build -- --project examples/order-management
 npm run studio -- --project examples/order-management --port 4173
+npm run dev -- --project examples/order-management --port 4173
 ```
+
+`dev`はPrisma・Zod・OpenAPI・Markdownを変更するたびに再スキャン・再ビルドします。StudioにはOverview、API operations、Database、Zod schemas、ER diagram、Documentsのビューがあります。
 
 生成物は対象プロジェクトの`.specdock/`に出力されます。

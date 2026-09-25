@@ -13,6 +13,7 @@
     "check": "node ./cli/src/index.mjs check",
     "build": "node ./cli/src/index.mjs build",
     "studio": "node ./cli/src/index.mjs serve",
+    "dev": "node ./cli/src/index.mjs dev",
     "test": "node --test"
   },
   "engines": {

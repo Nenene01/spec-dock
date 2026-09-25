@@ -249,23 +249,60 @@ async function check() {
   process.exitCode = errors.length ? 1 : 0;
 }
 
-async function build() {
-  const model = await loadScan();
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character]));
+}
+
+function renderStudioHtml(model, mermaid) {
+  const data = JSON.stringify(model).replace(/</g, "\\u003c");
+  const script = `<script>
+const model = window.__SPEC_DOCK__;
+const app = document.querySelector("#app");
+const search = document.querySelector("#search");
+let currentView = location.hash.slice(1) || "overview";
+const esc = (value) => String(value == null ? "" : value).replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const matches = (value) => !search.value || String(value).toLowerCase().includes(search.value.toLowerCase());
+function table(headers, rows, empty) { return rows.length ? "<table><thead><tr>" + headers.map((h) => "<th>" + h + "</th>").join("") + "</tr></thead><tbody>" + rows.join("") + "</tbody></table>" : "<p class=empty>" + empty + "</p>"; }
+function overview() {
+  return "<section class=hero><p class=eyebrow>SPECIFICATION WORKSPACE</p><h1>Understand the source.</h1><p>Prisma, Zod, OpenAPI, and Markdown connected in one place.</p></section><div class=stats><button data-view=api><strong>" + model.openapi.operations.length + "</strong><span>API operations</span></button><button data-view=database><strong>" + model.prisma.models.length + "</strong><span>Database models</span></button><button data-view=zod><strong>" + model.zod.schemas.length + "</strong><span>Zod schemas</span></button><button data-view=documents><strong>" + model.markdown.documents.length + "</strong><span>Documents</span></button></div><section class=panel><h2>Project sources</h2><p>Scanned at " + esc(model.scannedAt) + "</p><div class=source-list><code>Prisma: " + model.prisma.files.join(", ") + "</code><code>OpenAPI: " + model.openapi.files.join(", ") + "</code><code>Zod: " + model.zod.files.join(", ") + "</code><code>Markdown: " + model.markdown.files.join(", ") + "</code></div></section>";
+}
+function apiView() {
+  const rows = model.openapi.operations.filter((item) => matches(item.path + " " + item.method + " " + item.summary + " " + item.schema)).map((item) => "<tr><td><span class=method>" + esc(item.method) + "</span></td><td><code>" + esc(item.path) + "</code></td><td>" + esc(item.summary) + "</td><td>" + esc(item.response) + "</td><td>" + esc(item.schema) + "</td></tr>");
+  return "<section class=page-header><p class=eyebrow>INTERFACE</p><h1>API operations</h1><p>OpenAPI paths connected to their response schemas.</p></section>" + table(["Method", "Path", "Summary", "Response", "Zod schema"], rows, "No API operations found.");
+}
+function databaseView() {
+  const cards = model.prisma.models.filter((item) => matches(item.name + " " + item.description + " " + item.fields.map((f) => f.name + " " + f.description).join(" "))).map((item) => "<article class=model-card><div class=card-title><div><p class=eyebrow>MODEL</p><h2>" + esc(item.name) + "</h2></div><code>" + esc(item.file) + "</code></div><p>" + esc(item.description || "No description") + "</p>" + table(["Field", "Type", "Flags", "Description"], item.fields.map((field) => "<tr><td><code>" + esc(field.name) + "</code></td><td>" + esc(field.type + (field.isArray ? "[]" : "") + (field.isOptional ? "?" : "")) + "</td><td>" + esc([field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")) + "</td><td>" + esc(field.description) + "</td></tr>"), "No fields found.") + "</article>");
+  return "<section class=page-header><p class=eyebrow>DATABASE</p><h1>Models</h1><p>Prisma models and their relationships.</p></section>" + (cards.join("") || "<p class=empty>No models found.</p>");
+}
+function zodView() {
+  const cards = model.zod.schemas.filter((item) => matches(item.name + " " + item.fields.map((f) => f.name + " " + f.description).join(" "))).map((schema) => "<article class=model-card><div class=card-title><div><p class=eyebrow>VALIDATION SCHEMA</p><h2>" + esc(schema.name) + "</h2></div><code>" + esc(schema.file) + "</code></div>" + table(["Field", "Zod type", "Description"], schema.fields.map((field) => "<tr><td><code>" + esc(field.name) + "</code></td><td>" + esc(field.type) + "</td><td>" + esc(field.description) + "</td></tr>"), "No fields found.") + "</article>");
+  return "<section class=page-header><p class=eyebrow>VALIDATION</p><h1>Zod schemas</h1><p>Runtime validation and inferred application contracts.</p></section>" + (cards.join("") || "<p class=empty>No Zod schemas found.</p>");
+}
+function documentsView() {
+  const cards = model.markdown.documents.filter((item) => matches(item.title + " " + item.summary + " " + item.file)).map((document) => "<article class=doc-card><p class=eyebrow>DOCUMENT</p><h2>" + esc(document.title) + "</h2><p>" + esc(document.summary) + "</p><code>" + esc(document.file) + "</code></article>");
+  return "<section class=page-header><p class=eyebrow>KNOWLEDGE</p><h1>Documents</h1><p>Business context, decisions, and terminology.</p></section>" + (cards.join("") || "<p class=empty>No documents found.</p>");
+}
+function erView() { return "<section class=page-header><p class=eyebrow>RELATIONSHIPS</p><h1>ER diagram</h1><p>Generated from Prisma relations.</p></section><pre class=diagram>" + esc(${JSON.stringify(mermaid)}) + "</pre><p><a href=schema.mmd>Download Mermaid source</a></p>"; }
+function render() { document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === currentView)); app.innerHTML = ({overview,api:apiView,database:databaseView,zod:zodView,documents:documentsView,er:erView}[currentView] || overview)(); }
+document.querySelectorAll("[data-view]").forEach((item) => item.addEventListener("click", () => { currentView = item.dataset.view; location.hash = currentView; render(); }));
+search.addEventListener("input", render); window.addEventListener("hashchange", () => { currentView = location.hash.slice(1) || "overview"; render(); }); render();
+</script>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#17202a;background:#f6f7f9}*{box-sizing:border-box}body{margin:0}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}.sidebar{background:#111827;color:#d1d5db;padding:24px 16px}.brand{color:#fff;font-size:20px;font-weight:750;margin:0 8px 6px}.tagline{font-size:12px;color:#9ca3af;margin:0 8px 32px}.nav-label,.eyebrow{font-size:11px;letter-spacing:.12em;font-weight:700;color:#8b95a7}.nav-label{margin:22px 8px 8px}.nav button{display:block;width:100%;border:0;background:transparent;color:#cbd5e1;text-align:left;padding:10px 12px;border-radius:8px;font:inherit;cursor:pointer}.nav button:hover,.nav button.active{background:#25314a;color:#fff}.content{min-width:0}.topbar{height:72px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;padding:0 40px;gap:20px}.search{width:min(560px,100%);padding:11px 14px;border:1px solid #d1d5db;border-radius:8px;font:inherit}.main{max-width:1120px;margin:0 auto;padding:48px 40px}.hero{padding:12px 0 34px}.hero h1,.page-header h1{font-size:38px;line-height:1.1;margin:8px 0 12px;color:#111827}.hero p:not(.eyebrow),.page-header p:not(.eyebrow){color:#667085;font-size:17px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}.stats button{background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-align:left;padding:18px;cursor:pointer}.stats button:hover{border-color:#8796b0;transform:translateY(-1px)}.stats strong,.stats span{display:block}.stats strong{font-size:28px;color:#111827}.stats span{color:#667085;margin-top:5px}.panel,.model-card,.doc-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:22px;margin:18px 0}.panel h2,.model-card h2,.doc-card h2{margin:0 0 8px;color:#111827}.source-list{display:grid;gap:8px}.source-list code{overflow:auto}.card-title{display:flex;align-items:start;justify-content:space-between;gap:16px}.page-header{margin-bottom:28px}.page-header p{margin:6px 0}.model-card code,.doc-card code{color:#667085;font-size:13px}table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:14px 0 24px}th,td{text-align:left;border-bottom:1px solid #eef0f3;padding:12px;vertical-align:top;font-size:14px}th{color:#667085;font-size:12px;text-transform:uppercase;letter-spacing:.05em;background:#fafafa}tr:last-child td{border-bottom:0}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f0f2f5;border-radius:4px;padding:2px 5px;color:#344054}.method{display:inline-block;background:#e0f2fe;color:#075985;border-radius:5px;padding:4px 7px;font-size:12px;font-weight:700}.diagram{background:#111827;color:#e5e7eb;padding:22px;border-radius:12px;overflow:auto;line-height:1.6}.empty{padding:24px;background:#fff;border:1px dashed #cbd5e1;border-radius:10px;color:#667085}@media(max-width:760px){.shell{grid-template-columns:1fr}.sidebar{padding:16px}.nav{display:flex;flex-wrap:wrap;gap:4px}.nav-label{display:none}.nav button{width:auto}.topbar{padding:0 16px}.main{padding:28px 16px}.stats{grid-template-columns:repeat(2,1fr)}.card-title{display:block}.card-title code{display:block;margin-top:8px}}}</style></head><body><div class=shell><aside class=sidebar><p class=brand>SpecDock</p><p class=tagline>Source-anchored specifications.</p><nav class=nav><p class=nav-label>EXPLORE</p><button data-view=overview>Overview</button><button data-view=api>API operations</button><button data-view=database>Database</button><button data-view=zod>Zod schemas</button><button data-view=er>ER diagram</button><button data-view=documents>Documents</button></nav></aside><div class=content><header class=topbar><input id=search class=search placeholder="Search specifications..." /></header><main id=app class=main></main></div></div><script>window.__SPEC_DOCK__=${data};</script>${script}</body></html>`;
+}
+
+async function build({ rescan = true } = {}) {
+  const model = rescan ? await scan() : await loadScan();
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   await mkdir(siteDir, { recursive: true });
   const mermaid = buildMermaidEr(model.prisma.models);
   await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
-  const modelCards = model.prisma.models.map((item) => `<article class="model-card" data-search="${item.name} ${item.description} ${item.fields.map((field) => `${field.name} ${field.description}`).join(" ")}"><h3>${item.name}</h3><p>${item.description || "No description"}</p><table><thead><tr><th>Field</th><th>Type</th><th>Flags</th><th>Description</th></tr></thead><tbody>${item.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}${field.isArray ? "[]" : ""}${field.isOptional ? "?" : ""}</td><td>${[field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")}</td><td>${field.description || ""}</td></tr>`).join("")}</tbody></table></article>`).join("");
-  const operationRows = model.openapi.operations.map((item) => `<tr><td><code>${item.method}</code></td><td><code>${item.path}</code></td><td>${item.summary || ""}</td><td>${item.response || ""}</td><td>${item.schema || ""}</td></tr>`).join("");
-  const zodCards = model.zod.schemas.map((schema) => `<article class="zod-card" data-search="${schema.name} ${schema.fields.map((field) => `${field.name} ${field.description}`).join(" ")}"><h3>${schema.name}</h3><p><code>${schema.file}</code></p><table><thead><tr><th>Field</th><th>Zod type</th><th>Description</th></tr></thead><tbody>${schema.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}</td><td>${field.description}</td></tr>`).join("")}</tbody></table></article>`).join("");
-  const documentCards = model.markdown.documents.map((document) => `<article class="document-card" data-search="${document.title} ${document.summary} ${document.file}"><h3>${document.title}</h3><p>${document.summary}</p><p><code>${document.file}</code></p></article>`).join("");
-  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}.search{width:100%;box-sizing:border-box;padding:10px;margin:12px 0 20px;font:inherit}.hidden{display:none}.mermaid{padding:16px;border:1px solid #888;border-radius:8px;white-space:pre;overflow:auto}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p><input class="search" id="search" placeholder="Search models, fields, schemas, and documents..." /></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>API operations: ${model.openapi.operations.length}</span><span>Zod schemas: ${model.zod.schemas.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown documents: ${model.markdown.documents.length}</span></div><h2>API</h2><table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Response</th><th>Zod schema</th></tr></thead><tbody>${operationRows || "<tr><td colspan=5>No API operations detected.</td></tr>"}</tbody></table><h2>ER Diagram</h2><pre class="mermaid">${mermaid}</pre><p><a href="schema.mmd">Download Mermaid source</a></p><h2>Zod</h2>${zodCards || "<p>No Zod schemas detected.</p>"}<h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}<h2>Documents</h2>${documentCards || "<p>No Markdown documents detected.</p>"}</main><script>const input=document.querySelector('#search');input.addEventListener('input',()=>{const query=input.value.toLowerCase();document.querySelectorAll('[data-search]').forEach((element)=>element.classList.toggle('hidden',query&&!element.dataset.search.toLowerCase().includes(query)));});</script>`;
+  const html = renderStudioHtml(model, mermaid);
   await writeFile(join(siteDir, "index.html"), html);
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
   console.log(`Built SpecDock site: ${join(siteDir, "index.html")}`);
 }
 
-async function serve() {
+async function serve({ watchProject = false } = {}) {
   await build();
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   const port = Number(option("--port") ?? 4173);
@@ -294,14 +331,26 @@ async function serve() {
     console.log(`SpecDock Studio: http://localhost:${port}`);
     console.log("Press Ctrl-C to stop.");
   });
+  if (watchProject) {
+    const { watch } = await import("node:fs");
+    let timer;
+    watch(project, { recursive: true }, (event, filename) => {
+      if (!filename || filename.includes("node_modules") || filename.includes(".git") || filename.includes(".specdock")) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => build().catch((error) => console.error(`Rebuild failed: ${error.message}`)), 150);
+    });
+    console.log(`Watching ${project}`);
+  }
 }
 
 function help() {
   console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock scan [--project <path>] [--out <path>]\n  specdock check [--project <path>] [--format human|json]\n  specdock build [--project <path>] [--out <path>] [--site-out <path>]\n  specdock serve [--project <path>] [--port <number>]`);
+  console.log("  specdock dev   [--project <path>] [--port <number>]  # serve + watch");
 }
 
 if (command === "scan") await scan();
 else if (command === "check") await check();
 else if (command === "build") await build();
 else if (command === "serve") await serve();
+else if (command === "dev") await serve({ watchProject: true });
 else help();

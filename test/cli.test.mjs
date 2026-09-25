@@ -46,11 +46,10 @@ test("build creates a browsable HTML artifact", async () => {
   const html = await readFile(join(site, "index.html"), "utf8");
   assert.match(html, /SpecDock/);
   assert.match(html, /Customer/);
-  assert.match(html, /customerId/);
-  assert.match(html, /\/orders/);
-  assert.match(html, /OrderResponse/);
-  assert.match(html, /Search models/);
+  assert.match(html, /API operations/);
+  assert.match(html, /Database/);
+  assert.match(html, /Search specifications/);
+  assert.match(html, /window.__SPEC_DOCK__/);
   assert.match(html, /erDiagram/);
-  assert.match(html, /Order management/);
   await access(join(site, "schema.mmd"));
 });
