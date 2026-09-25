@@ -50,9 +50,7 @@ specdock serve  # ビルドしてStudioを起動
 specdock dev    # Studioを起動し、ソース変更を監視
 ```
 
-詳細は[Phase 0計画](docs/phase-0-plan.md)を参照してください。
-
-設計上の正本と責務は[Source of truth](docs/source-of-truth.md)、開発手順は[Development loop](docs/development-loop.md)にまとめています。
+仕様は[specs/](specs/README.md)、アーキテクチャは[docs/architecture/](docs/architecture/README.md)、設計判断は[docs/adr/](docs/adr/README.md)、開発手順は[Development guide](docs/guides/development-loop.md)、横断ルールは[rules/](rules/README.md)に分けて管理します。
 
 ## 開発
 
