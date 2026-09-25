@@ -26,6 +26,21 @@ code-first
 
 OpenAPIとZodを独立した正本として編集する運用は採用しない。
 
+## Studio表示設定
+
+Explorerのブランド名とサブタイトルは、プロジェクトルートの`spec-dock.config.json`で設定する。
+
+```json
+{
+  "studio": {
+    "title": "SpecDock",
+    "subtitle": "ソース仕様に接続する開発Studio"
+  }
+}
+```
+
+未設定の場合は、上記の既定値を表示する。
+
 ## Markdownの境界
 
 Markdownは、業務背景、受け入れ条件、ADR、用語集などの説明に使う。API、DB、画面項目の構造化情報をMarkdownへ重複して記述しない。

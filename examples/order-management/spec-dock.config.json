@@ -1,4 +1,8 @@
 {
+  "studio": {
+    "title": "SpecDock",
+    "subtitle": "ソース仕様に接続する開発Studio"
+  },
   "api": {
     "mode": "code-first"
   },

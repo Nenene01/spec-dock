@@ -52,7 +52,9 @@ async function init() {
     const ask = async (label, fallback) => { const answer = await rl.question(`${label} [${fallback || "なし"}] `); return answer.trim() || fallback; };
     const askList = async (label, values) => (await ask(label, values.join(","))).split(",").map((value) => value.trim()).filter(Boolean);
     const mode = await ask("API契約モード（contract-first / code-first）", "code-first");
-    const config = { api: { mode: ["contract-first", "code-first"].includes(mode) ? mode : "code-first" }, sources: { prisma: await askList("Prisma Schema", prisma), openapi: await askList("OpenAPI", openapi), zod: await askList("Zodディレクトリ", zod), documents: await askList("Documentsディレクトリ", documents) } };
+    const studioTitle = await ask("Studio名", "SpecDock");
+    const studioSubtitle = await ask("Studioサブタイトル", "ソース仕様に接続する開発Studio");
+    const config = { studio: { title: studioTitle, subtitle: studioSubtitle }, api: { mode: ["contract-first", "code-first"].includes(mode) ? mode : "code-first" }, sources: { prisma: await askList("Prisma Schema", prisma), openapi: await askList("OpenAPI", openapi), zod: await askList("Zodディレクトリ", zod), documents: await askList("Documentsディレクトリ", documents) } };
     await writeFile(configFile, `${JSON.stringify(config, null, 2)}\n`);
     console.log(`初期設定を保存しました: ${configFile}`);
   } finally { rl.close(); }

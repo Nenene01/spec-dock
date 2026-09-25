@@ -29,6 +29,8 @@ test("scan finds project source categories and Prisma models", async () => {
   assert.equal(scan.openapi.operations[0].method, "GET");
   assert.equal(scan.openapi.operations[0].path, "/orders");
   assert.equal(scan.openapi.operations[0].schema, "OrderListResponse");
+  assert.equal(scan.config.studio.title, "SpecDock");
+  assert.equal(scan.config.studio.subtitle, "ソース仕様に接続する開発Studio");
   assert.equal(scan.config.api.mode, "code-first");
   assert.deepEqual(scan.sourceCatalog.zod, ["src/schemas"]);
   assert.deepEqual(scan.sourceCatalog.documents, ["specs"]);
