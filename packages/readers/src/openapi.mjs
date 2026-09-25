@@ -54,6 +54,10 @@ function schemaFromContent(content, schemas) {
   return summarizeSchema(media?.schema, schemas);
 }
 
+function mediaTypeFromContent(content) {
+  return Object.keys(content ?? {})[0];
+}
+
 function normalizeParameters(parameters, schemas) {
   return (parameters ?? []).map((parameter) => ({
     name: parameter.name,
@@ -84,7 +88,7 @@ export function parseOpenApiOperations(document, file) {
         summary: operation.summary ?? operation.description ?? "",
         tags: operation.tags ?? [],
         parameters,
-        requestBody: operation.requestBody ? { required: operation.requestBody.required ?? false, description: operation.requestBody.description, schema: schemaFromContent(operation.requestBody.content, schemas) } : undefined,
+        requestBody: operation.requestBody ? { required: operation.requestBody.required ?? false, description: operation.requestBody.description, contentType: mediaTypeFromContent(operation.requestBody.content), schema: schemaFromContent(operation.requestBody.content, schemas) } : undefined,
         response,
         schema: schemaFromContent(responseDefinition?.content, schemas)?.ref,
         responses,
