@@ -52,6 +52,8 @@ specdock dev    # Studioを起動し、ソース変更を監視
 
 詳細は[Phase 0計画](docs/phase-0-plan.md)を参照してください。
 
+設計上の正本と責務は[Source of truth](docs/source-of-truth.md)、開発手順は[Development loop](docs/development-loop.md)にまとめています。
+
 ## 開発
 
 ```sh
