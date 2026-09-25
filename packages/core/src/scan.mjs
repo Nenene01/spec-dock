@@ -31,11 +31,12 @@ export async function scanProject(project, outDir) {
   const openapiFiles = files.filter((file) => /(^|\/)(openapi|api)\.(ya?ml|json)$/i.test(file));
   const markdownFiles = files.filter((file) => /\.md$/i.test(file));
   const models = [];
+  const prismaSources = [];
   const operations = [];
   const openapiSchemas = [];
   const schemas = [];
   const documents = [];
-  for (const file of prismaFiles) models.push(...parsePrismaModels(await readText(file), relative(project, file)));
+  for (const file of prismaFiles) { const content = await readText(file); models.push(...parsePrismaModels(content, relative(project, file))); prismaSources.push({ file: relative(project, file), content }); }
   const openapiErrors = [];
   for (const file of openapiFiles) {
     const result = await readOpenApiFile(file);
@@ -61,7 +62,7 @@ export async function scanProject(project, outDir) {
     scannedAt: new Date().toISOString(),
     config,
     sourceCatalog,
-    prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
+    prisma: { files: prismaFiles.map((file) => relative(project, file)), models, sources: prismaSources },
     zod: { files: zodFiles.map((file) => relative(project, file)), schemas },
     openapi: { files: openapiFiles.map((file) => relative(project, file)), operations, schemas: openapiSchemas, errors: openapiErrors },
     markdown: { files: markdownFiles.map((file) => relative(project, file)), documents },
