@@ -3,7 +3,7 @@
 import { createServer } from "node:http";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { buildMermaidEr } from "../../packages/readers/src/prisma.mjs";
 import { loadScan, scanProject } from "../../packages/core/src/scan.mjs";
 import { renderStudioHtml } from "../../packages/studio/src/render.mjs";
@@ -85,11 +85,11 @@ async function build() {
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   await mkdir(siteDir, { recursive: true });
   const mermaid = buildMermaidEr(model.prisma.models);
+  process.env.SPECDOCK_SITE_OUT = siteDir;
+  await viteBuild({ configFile: resolve("packages/studio/vite.config.mjs"), logLevel: "error" });
   await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
   await writeFile(join(siteDir, "index.html"), renderStudioHtml(model, mermaid));
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
-  process.env.SPECDOCK_SITE_OUT = siteDir;
-  await viteBuild({ configFile: resolve("packages/studio/vite.config.mjs"), logLevel: "error" });
   console.log(`Built SpecDock Studio: ${join(siteDir, "index.html")}`);
 }
 
@@ -113,7 +113,9 @@ async function serve({ watchProject = false } = {}) {
     const { watch } = await import("node:fs");
     let timer;
     watch(project, { recursive: true }, (event, filename) => {
-      if (!filename || filename.includes("node_modules") || filename.includes(".git") || filename.includes(".specdock")) return;
+      const changedPath = filename ? resolve(project, String(filename)) : "";
+      const outputPath = resolve(outDir);
+      if (!filename || changedPath.includes(`${sep}node_modules${sep}`) || changedPath.includes(`${sep}.git${sep}`) || changedPath === outputPath || changedPath.startsWith(`${outputPath}${sep}`)) return;
       clearTimeout(timer);
       timer = setTimeout(() => build().catch((error) => console.error(`Rebuild failed: ${error.message}`)), 150);
     });
