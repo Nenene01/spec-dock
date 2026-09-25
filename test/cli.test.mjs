@@ -21,6 +21,8 @@ test("scan finds project source categories and Prisma models", async () => {
   assert.equal(scan.zod.files.length, 1);
   assert.equal(scan.openapi.files.length, 1);
   assert.equal(scan.markdown.files.length, 1);
+  assert.equal(scan.prisma.models[0].fields[0].name, "id");
+  assert.equal(scan.prisma.models[0].fields[2].isRelation, true);
   assert.equal(scan.diagnostics.length, 0);
 });
 
@@ -37,4 +39,5 @@ test("build creates a browsable HTML artifact", async () => {
   const html = await readFile(join(site, "index.html"), "utf8");
   assert.match(html, /SpecDock/);
   assert.match(html, /Customer/);
+  assert.match(html, /customerId/);
 });

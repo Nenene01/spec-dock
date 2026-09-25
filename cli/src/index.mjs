@@ -63,6 +63,37 @@ function diagnostics(model) {
   return items;
 }
 
+function parsePrismaFields(body) {
+  const fields = [];
+  let comments = [];
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith("///")) {
+      comments.push(line.replace(/^\/\/\/\s*/, ""));
+      continue;
+    }
+    if (line.startsWith("//") || line.startsWith("@@")) continue;
+    const match = line.match(/^(\w+)\s+([\w]+)(\[\])?(\?)?\s*(.*)$/);
+    if (!match) {
+      comments = [];
+      continue;
+    }
+    const [, name, type, array, optional, attributes] = match;
+    fields.push({
+      name,
+      type,
+      isArray: Boolean(array),
+      isOptional: Boolean(optional),
+      isRelation: Boolean(attributes.match(/@relation/) || array),
+      attributes: attributes.trim(),
+      description: comments.join(" "),
+    });
+    comments = [];
+  }
+  return fields;
+}
+
 async function scan() {
   const files = await walk(project);
   const prismaFiles = files.filter((file) => file.endsWith(".prisma"));
@@ -75,7 +106,7 @@ async function scan() {
     const modelPattern = /((?:^|\n)\s*\/\/\/[^\n]*\n\s*)*\s*model\s+(\w+)\s*\{([\s\S]*?)\n\s*\}/g;
     for (const match of text.matchAll(modelPattern)) {
       const comments = (match[1] ?? "").match(/\/\/\/\s*(.*)/g)?.map((line) => line.replace(/^\/\/\/\s*/, "")) ?? [];
-      models.push({ name: match[2], description: comments.join(" "), fields: match[3].split("\n").map((line) => line.trim()).filter(Boolean), file: relative(project, file) });
+      models.push({ name: match[2], description: comments.join(" "), fields: parsePrismaFields(match[3]), file: relative(project, file) });
     }
   }
   const model = {
@@ -121,7 +152,8 @@ async function build() {
   const model = await loadScan();
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   await mkdir(siteDir, { recursive: true });
-  const html = `<!doctype html><meta charset="utf-8"><title>SpecDock</title><style>body{font:16px system-ui;max-width:960px;margin:40px auto;padding:0 20px}code{background:#eee;padding:2px 4px}li{margin:8px 0}</style><h1>SpecDock</h1><p>Source-anchored specifications.</p><h2>Database</h2><ul>${model.prisma.models.map((item) => `<li><strong>${item.name}</strong> — ${item.description || "No description"}</li>`).join("") || "<li>No Prisma models detected.</li>"}</ul><h2>Sources</h2><p>Prisma: ${model.prisma.files.length}, Zod: ${model.zod.files.length}, OpenAPI: ${model.openapi.files.length}, Markdown: ${model.markdown.files.length}</p>`;
+  const modelCards = model.prisma.models.map((item) => `<article><h3>${item.name}</h3><p>${item.description || "No description"}</p><table><thead><tr><th>Field</th><th>Type</th><th>Flags</th><th>Description</th></tr></thead><tbody>${item.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}${field.isArray ? "[]" : ""}${field.isOptional ? "?" : ""}</td><td>${[field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")}</td><td>${field.description || ""}</td></tr>`).join("")}</tbody></table></article>`).join("");
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>Zod files: ${model.zod.files.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main>`;
   await writeFile(join(siteDir, "index.html"), html);
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
   console.log(`Built SpecDock site: ${join(siteDir, "index.html")}`);

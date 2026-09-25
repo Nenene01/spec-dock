@@ -5,16 +5,24 @@ datasource db {
 
 /// Customer who places orders.
 model Customer {
+  /// Customer identifier.
   id     String  @id @default(uuid())
+  /// Display name.
   name   String
+  /// Orders placed by the customer.
   orders Order[]
 }
 
 /// Order placed by a customer.
 model Order {
+  /// Order identifier.
   id         String   @id @default(uuid())
+  /// Human-readable unique order number.
   orderNo    String   @unique
+  /// Owning customer identifier.
   customerId String
+  /// Owning customer.
   customer   Customer @relation(fields: [customerId], references: [id])
+  /// Creation timestamp.
   createdAt  DateTime @default(now())
 }
