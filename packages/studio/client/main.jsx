@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import dagre from "@dagrejs/dagre";
+import { Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, Handle, Panel, Position, ReactFlow, ReactFlowProvider, getBezierPath, useEdgesState, useNodesState, useReactFlow } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import "./styles.css";
 
 const model = window.__SPEC_DOCK__;
@@ -24,7 +27,121 @@ function InlineMarkdown({ text }) { const parts = String(text).split(/(\*\*[^*]+
 function MermaidBlock({ source }) { const ref = useRef(null); useEffect(() => { let cancelled = false; const render = () => { if (cancelled || !window.mermaid || !ref.current) return; window.mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" }); window.mermaid.run({ nodes: [ref.current] }); }; if (window.mermaid) render(); else { const existing = document.querySelector('script[data-mermaid="true"]'); const script = existing || document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"; script.dataset.mermaid = "true"; script.addEventListener("load", render, { once: true }); if (!existing) document.head.appendChild(script); } return () => { cancelled = true; }; }, [source]); return <div className="doc-mermaid"><div ref={ref} className="mermaid">{source}</div></div>; }
 function MarkdownView({ content }) { const lines = String(content || "").split("\n"); const blocks = []; let paragraph = []; let list = []; let code = null; const flushParagraph = () => { if (paragraph.length) { blocks.push({ type: "paragraph", lines: paragraph }); paragraph = []; } }; const flushList = () => { if (list.length) { blocks.push({ type: "list", lines: list }); list = []; } }; lines.forEach((line) => { const fence = line.match(/^```(.*)$/); if (fence) { if (code) { blocks.push({ type: code.language === "mermaid" ? "mermaid" : "code", language: code.language, lines: code.lines }); code = null; } else { flushParagraph(); flushList(); code = { language: fence[1].trim().toLowerCase(), lines: [] }; } return; } if (code) { code.lines.push(line); return; } const heading = line.match(/^(#{1,6})\s+(.+)$/); if (heading) { flushParagraph(); flushList(); blocks.push({ type: "heading", level: heading[1].length, text: heading[2] }); return; } const item = line.match(/^\s*[-*+]\s+(.+)$/); if (item) { flushParagraph(); list.push(item[1]); return; } if (!line.trim()) { flushParagraph(); flushList(); return; } paragraph.push(line); }); if (code) blocks.push({ type: "code", language: code.language, lines: code.lines }); flushParagraph(); flushList(); return <>{blocks.map((block, index) => { if (block.type === "heading") { const Heading = `h${block.level}`; return <Heading key={index}><InlineMarkdown text={block.text}/></Heading>; } if (block.type === "list") return <ul key={index}>{block.lines.map((line) => <li key={line}><InlineMarkdown text={line}/></li>)}</ul>; if (block.type === "mermaid") return <MermaidBlock key={index} source={block.lines.join("\n")}/>; if (block.type === "code") return <pre className="doc-fenced-code" key={index}><code>{block.lines.join("\n")}</code></pre>; return <p key={index}><InlineMarkdown text={block.lines.join("\n")}/></p>; })}</>; }
 function DocumentPage({ id }) { const item = model.markdown.documents[Number(id)]; const [mode, setMode] = useState("view"); return <><Head eyebrow="DOCUMENT" title={item.title} description={item.summary}/><div className="document-toolbar"><code>{item.file}</code><div className="document-mode-actions"><button className={mode === "view" ? "active" : ""} onClick={() => setMode("view")}><Icon name="eye"/>表示</button><button className={mode === "code" ? "active" : ""} onClick={() => setMode("code")}><Icon name="code"/>Code</button></div></div><section className="panel">{mode === "view" ? <div className="doc-view"><MarkdownView content={item.body || item.content}/></div> : <pre className="doc-code">{item.content}</pre>}</section></>; }
-function ErPage() { const [scale, setScale] = useState(1); useEffect(() => { const load = () => { window.mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" }); window.mermaid.run({ nodes: [document.querySelector(".er-mermaid")] }); }; if (window.mermaid) load(); else { const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"; script.onload = load; document.head.appendChild(script); } }, []); const source = model.prisma.sources?.[0]; return <section className="er-workspace"><header className="er-header"><div><span className="eyebrow">PRISMA SCHEMA</span><h1>Prisma Schema</h1><p>{model.prisma.models.length} モデル · {source?.file || "schema.prisma"}</p></div><div className="er-tools"><button onClick={() => setScale(1)}>Auto layout</button></div></header><div className="er-split"><section className="er-source"><header><span>{source?.file || "prisma/schema.prisma"}</span><small>Source</small></header><pre>{source?.content || "Prisma Schemaのソースがありません。"}</pre></section><section className="er-diagram"><div className="er-viewport"><div className="er-mermaid" style={{ transform: `scale(${scale})` }}>{erSource}</div><div className="er-zoom"><button onClick={() => setScale((v) => Math.min(2.5, v + .15))}>＋</button><button onClick={() => setScale((v) => Math.max(.35, v - .15))}>−</button><button onClick={() => setScale(1)}>⌗</button></div></div></section></div></section>; }
++function erFieldType(field) { return field.type + (field.isArray ? "[]" : "") + (field.isOptional ? "?" : ""); }
+function erNodeHeight(modelItem) { return 44 + modelItem.fields.length * 28 + ((modelItem.constraints || []).length ? 30 : 0); }
+function buildErGraph(models) {
+  const byName = new Map(models.map((item) => [item.name, item]));
+  const nodes = models.map((item) => ({ id: item.name, type: "erModel", position: { x: 0, y: 0 }, data: { model: item } }));
+  const candidates = [];
+  models.forEach((item) => item.fields.filter((field) => field.isRelation).forEach((field) => candidates.push({ item, field })));
+  candidates.sort((a, b) => Number(!a.field.relation) - Number(!b.field.relation));
+  const seen = new Set();
+  const edges = [];
+  candidates.forEach(({ item, field }) => {
+    const target = byName.get(field.type);
+    if (!target) return;
+    const pair = [item.name, target.name].sort().join("::");
+    if (seen.has(pair)) return;
+    seen.add(pair);
+    const sourceField = field.relation?.fields?.[0] || (field.isArray ? null : field.name);
+    const targetField = field.relation?.references?.[0] || null;
+    edges.push({
+      id: pair,
+      source: item.name,
+      target: target.name,
+      sourceHandle: sourceField ? "source:" + sourceField : "source:model",
+      targetHandle: targetField ? "target:" + targetField : "target:model",
+      type: "erRelation",
+      data: { label: field.name },
+    });
+  });
+  return { nodes, edges };
+}
+function layoutErGraph(nodes, edges, saved = {}) {
+  const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  graph.setGraph({ rankdir: "LR", nodesep: 70, ranksep: 180, marginx: 80, marginy: 80 });
+  nodes.forEach((node) => graph.setNode(node.id, { width: 300, height: erNodeHeight(node.data.model) }));
+  edges.forEach((edge) => graph.setEdge(edge.source, edge.target));
+  dagre.layout(graph);
+  return nodes.map((node) => {
+    const size = graph.node(node.id);
+    return {
+      ...node,
+      position: saved[node.id] || { x: size.x - 150, y: size.y - erNodeHeight(node.data.model) / 2 },
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+    };
+  });
+}
+function ErModelNode({ data }) {
+  const item = data.model;
+  return <article className="er-model-node">
+    <header className="er-model-header">
+      <Handle type="target" position={Position.Left} id="target:model" className="er-handle" />
+      <strong>{item.name}</strong>
+      <span>{item.fields.length}</span>
+      <Handle type="source" position={Position.Right} id="source:model" className="er-handle" />
+    </header>
+    <div className="er-model-fields">
+      {item.fields.map((field) => <div className="er-model-field" key={field.name}>
+        <Handle type="target" position={Position.Left} id={"target:" + field.name} className="er-handle" />
+        <span className={"er-field-mark " + (field.isId ? "is-key" : field.relation ? "is-relation" : "")}>{field.isId ? "◆" : field.relation ? "↗" : "·"}</span>
+        <span className="er-field-name">{field.name}</span>
+        {field.isUnique && <small className="er-field-badge">UK</small>}
+        <span className="er-field-type">{erFieldType(field)}</span>
+        <Handle type="source" position={Position.Right} id={"source:" + field.name} className="er-handle" />
+      </div>)}
+    </div>
+    {(item.constraints || []).length > 0 && <footer className="er-model-constraints">{item.constraints.map((constraint) => <span key={constraint.name || constraint.fields.join(",")}><b>{constraint.kind}</b>{constraint.fields.join(", ")}</span>)}</footer>}
+  </article>;
+}
++function ErRelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerStart, markerEnd, data }) {
+  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, curvature: 0.22 });
+  return <><BaseEdge id={id} path={path} markerStart={markerStart} markerEnd={markerEnd} />
+    {data?.label && <EdgeLabelRenderer><div className="er-relation-label" style={{ transform: "translate(-50%, -50%) translate(" + labelX + "px, " + labelY + "px)" }}>{data.label}</div></EdgeLabelRenderer>}
+  </>;
+}
+const erNodeTypes = { erModel: ErModelNode };
+const erEdgeTypes = { erRelation: ErRelationEdge };
+function ErCanvas() {
+  const structure = useMemo(() => buildErGraph(model.prisma.models), []);
+  const storageKey = "specdock:er-layout:" + (model.prisma.files?.[0] || "schema.prisma");
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(structure.edges);
+  const { fitView } = useReactFlow();
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    let saved = {};
+    try { saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}"); } catch {}
+    const next = layoutErGraph(structure.nodes, structure.edges, saved);
+    setNodes(next);
+    setEdges(structure.edges);
+    setTimeout(() => fitView({ padding: 0.12, duration: 300 }), 0);
+  }, [fitView, setEdges, setNodes, storageKey, structure]);
+  const persist = (items) => {
+    window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(items.map((node) => [node.id, node.position]))));
+  };
+  const relayout = () => {
+    setNodes((current) => {
+      const next = layoutErGraph(current.map((node) => ({ ...node, position: { x: 0, y: 0 } })), structure.edges);
+      persist(next);
+      setTimeout(() => fitView({ padding: 0.12, duration: 300 }), 0);
+      return next;
+    });
+  };
+  return <div className="er-canvas">
+    <ReactFlow nodes={nodes} edges={edges} nodeTypes={erNodeTypes} edgeTypes={erEdgeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeDragStop={() => setNodes((current) => { persist(current); return current; })} nodesConnectable={false} nodesDraggable fitView minZoom={0.1} maxZoom={2.2} proOptions={{ hideAttribution: true }}>
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2b3647" />
+      <Controls showInteractive={false} position="bottom-left" />
+      <Panel position="top-right" className="er-flow-panel"><button onClick={relayout}><Icon name="grid" />Auto layout</button></Panel>
+    </ReactFlow>
+  </div>;
+}
+function ErPage() {
+  return <section className="er-workspace"><header className="er-header"><div><span className="eyebrow">PRISMA SCHEMA</span><h1>ER図</h1><p>{model.prisma.models.length} モデル · ドラッグして配置を変更できます。</p></div></header><ReactFlowProvider><ErCanvas /></ReactFlowProvider></section>;
+}
 function ActivityRail({ route, open, toggleExplorer, explorerOpen }) { return <aside className="activity-rail">{[["overview", "grid"], ["documents", "doc"], ["api", "api"], ["database", "db"]].map(([target, name], index) => <button className={`${route === target || route.startsWith(`${target}/`) ? "active" : ""} ${index === 0 && explorerOpen ? "panel-open" : ""}`} title={index === 0 ? "Explorerを表示/非表示" : target} key={target} onClick={() => { if (index === 0) toggleExplorer(); else { if (!explorerOpen) toggleExplorer(); open(target); } }}><Icon name={name}/></button>)}</aside>; }
 function Explorer({ route, open, onResizeStart, onClose }) { const [query, setQuery] = useState(""); const match = (item) => !query || `${item.label} ${item.meta}`.toLowerCase().includes(query.toLowerCase()); const group = (title, name, values) => <details open><summary><Icon name={name}/>{title}<span>{values.length}</span></summary>{values.filter(match).map((item) => <button className={route === item.href ? "selected" : ""} key={item.href} onClick={() => open(item.href)}><strong>{item.label}</strong>{item.meta && <small>{item.meta}</small>}</button>)}</details>; return <aside className="explorer"><div className="brand"><span>SpecDock<small>ソース仕様に接続する開発Studio</small></span><button className="explorer-close" title="Explorerを閉じる" aria-label="Explorerを閉じる" onClick={onClose}><Icon name="panelLeft"/></button></div><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="仕様を検索..."/><h2>エクスプローラー</h2><button className={route === "overview" ? "selected overview-link" : "overview-link"} onClick={() => open("overview")}><Icon name="grid"/>概要</button>{group("Documents", "doc", model.markdown.documents.map((x, i) => ({ href: `document/${i}`, label: x.title, meta: "" })))}{group("API", "api", model.openapi.operations.map((x, i) => ({ href: `api/${i}`, label: `${x.method} ${x.path}`, meta: x.summary || x.operationId || "API操作" })))}{group("データ型", "code", model.zod.schemas.map((x, i) => ({ href: `zod/${i}`, label: x.name, meta: `${x.fields.length} fields` })))}{group("データモデル", "db", model.prisma.models.map((x, i) => ({ href: `database/${i}`, label: x.name, meta: `${x.fields.length} fields` })))}<details open><summary><Icon name="diagram"/>ER図</summary><button className={route === "er" ? "selected" : ""} onClick={() => open("er")}><strong>ER図</strong><small>Prismaリレーション</small></button></details><div className="explorer-resizer" onPointerDown={onResizeStart} role="separator" aria-label="Explorerの幅を変更"/></aside>; }
 function Tabs({ pane, open, close, beginDrag, endDrag }) { return <div className="editor-tabs">{pane.tabs.map((tab) => <div className={tab === pane.active ? "editor-tab active" : "editor-tab"} draggable onDragStart={(event) => beginDrag(event, tab)} onDragEnd={endDrag} key={tab}><button title={titleOf(tab)} onClick={() => open(tab)}>{titleOf(tab)}</button>{tab !== "overview" && <button className="close-tab" aria-label={`${titleOf(tab)}を閉じる`} onClick={(event) => { event.stopPropagation(); close(tab); }}>×</button>}</div>)}</div>; }
