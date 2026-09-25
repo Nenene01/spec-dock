@@ -9,3 +9,11 @@ paths:
       responses:
         '200':
           description: Orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+components:
+  schemas:
+    OrderResponse:
+      type: object

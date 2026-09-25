@@ -55,6 +55,12 @@ function diagnostics(model) {
   if (!model.openapi.files.length && !model.zod.files.length) {
     items.push({ code: "E002", level: "error", message: "OpenAPIまたはZod Schemaを検出できません", source: "api" });
   }
+  const zodNames = new Set(model.zod.schemas.map((schema) => schema.name));
+  for (const operation of model.openapi.operations) {
+    if (operation.schema && !zodNames.has(operation.schema)) {
+      items.push({ code: "E003", level: "error", message: `OpenAPIの参照先Zodスキーマがありません: ${operation.schema}`, source: operation.file });
+    }
+  }
   for (const modelItem of model.prisma.models) {
     if (!modelItem.description) {
       items.push({ code: "W001", level: "warning", message: `モデルの説明がありません: ${modelItem.name}`, source: modelItem.file });
@@ -106,6 +112,7 @@ function parseOpenApiOperations(text, file) {
     const methodMatch = line.match(/^\s{4}(get|post|put|patch|delete|options|head|trace):\s*$/i);
     const summaryMatch = line.match(/^\s{6}summary:\s*(.*)$/);
     const responseMatch = line.match(/^\s{8}'?([1-5][0-9]{2})'?:\s*$/);
+    const refMatch = line.match(/^\s+\$ref:\s*["']?#\/components\/schemas\/([^"']+)["']?\s*$/);
     if (pathMatch) {
       path = pathMatch[1];
       operation = undefined;
@@ -127,9 +134,26 @@ function parseOpenApiOperations(text, file) {
       response = responseMatch[1];
       operation.response = response;
     }
+    if (refMatch && operation) operation.schema = refMatch[1];
   }
   if (path && operation) operations.push({ path, ...operation, file });
   return operations;
+}
+
+function parseZodSchemas(text, file) {
+  const schemas = [];
+  const schemaPattern = /export\s+const\s+(\w+)\s*=\s*z\.object\(\{([\s\S]*?)\}\)/g;
+  for (const match of text.matchAll(schemaPattern)) {
+    const fields = [];
+    for (const rawLine of match[2].split("\n")) {
+      const fieldMatch = rawLine.trim().match(/^(\w+)\s*:\s*z\.([\w]+)([\s\S]*)[,;]?$/);
+      if (!fieldMatch) continue;
+      const description = fieldMatch[3].match(/\.describe\(["']([^"']+)["']\)/)?.[1] ?? "";
+      fields.push({ name: fieldMatch[1], type: fieldMatch[2], description });
+    }
+    schemas.push({ name: match[1], fields, file });
+  }
+  return schemas;
 }
 
 async function scan() {
@@ -140,6 +164,7 @@ async function scan() {
   const markdownFiles = files.filter((file) => /\.md$/i.test(file));
   const models = [];
   const operations = [];
+  const schemas = [];
   for (const file of prismaFiles) {
     const text = await readText(file);
     const modelPattern = /((?:^|\n)\s*\/\/\/[^\n]*\n\s*)*\s*model\s+(\w+)\s*\{([\s\S]*?)\n\s*\}/g;
@@ -151,12 +176,15 @@ async function scan() {
   for (const file of openapiFiles) {
     operations.push(...parseOpenApiOperations(await readText(file), relative(project, file)));
   }
+  for (const file of zodFiles) {
+    schemas.push(...parseZodSchemas(await readText(file), relative(project, file)));
+  }
   const model = {
     version: 1,
     project: project,
     scannedAt: new Date().toISOString(),
     prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
-    zod: { files: zodFiles.map((file) => relative(project, file)) },
+    zod: { files: zodFiles.map((file) => relative(project, file)), schemas },
     openapi: { files: openapiFiles.map((file) => relative(project, file)), operations },
     markdown: { files: markdownFiles.map((file) => relative(project, file)) },
   };
@@ -195,8 +223,9 @@ async function build() {
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   await mkdir(siteDir, { recursive: true });
   const modelCards = model.prisma.models.map((item) => `<article><h3>${item.name}</h3><p>${item.description || "No description"}</p><table><thead><tr><th>Field</th><th>Type</th><th>Flags</th><th>Description</th></tr></thead><tbody>${item.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}${field.isArray ? "[]" : ""}${field.isOptional ? "?" : ""}</td><td>${[field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")}</td><td>${field.description || ""}</td></tr>`).join("")}</tbody></table></article>`).join("");
-  const operationRows = model.openapi.operations.map((item) => `<tr><td><code>${item.method}</code></td><td><code>${item.path}</code></td><td>${item.summary || ""}</td><td>${item.response || ""}</td></tr>`).join("");
-  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>API operations: ${model.openapi.operations.length}</span><span>Zod files: ${model.zod.files.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>API</h2><table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Response</th></tr></thead><tbody>${operationRows || "<tr><td colspan=4>No API operations detected.</td></tr>"}</tbody></table><h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main>`;
+  const operationRows = model.openapi.operations.map((item) => `<tr><td><code>${item.method}</code></td><td><code>${item.path}</code></td><td>${item.summary || ""}</td><td>${item.response || ""}</td><td>${item.schema || ""}</td></tr>`).join("");
+  const zodCards = model.zod.schemas.map((schema) => `<article><h3>${schema.name}</h3><p><code>${schema.file}</code></p><table><thead><tr><th>Field</th><th>Zod type</th><th>Description</th></tr></thead><tbody>${schema.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}</td><td>${field.description}</td></tr>`).join("")}</tbody></table></article>`).join("");
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>API operations: ${model.openapi.operations.length}</span><span>Zod schemas: ${model.zod.schemas.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>API</h2><table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Response</th><th>Zod schema</th></tr></thead><tbody>${operationRows || "<tr><td colspan=5>No API operations detected.</td></tr>"}</tbody></table><h2>Zod</h2>${zodCards || "<p>No Zod schemas detected.</p>"}<h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main>`;
   await writeFile(join(siteDir, "index.html"), html);
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
   console.log(`Built SpecDock site: ${join(siteDir, "index.html")}`);
