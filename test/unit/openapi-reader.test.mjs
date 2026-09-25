@@ -8,6 +8,9 @@ test("OpenAPI reader parses the YAML example through the standard parser", async
   assert.equal(result.error, null);
   assert.equal(result.operations[0].path, "/orders");
   assert.equal(result.operations[0].schema, "OrderListResponse");
+  assert.equal(result.operations[1].requestBody.contentType, "application/json");
+  assert.equal(result.operations[1].security[0].scheme.bearerFormat, "JWT");
+  assert.equal(result.operations[1].servers[0].url, "https://api.example.com/v1");
 });
 
 test("OpenAPI reader returns a diagnostic-ready error for invalid input", async () => {

@@ -3,6 +3,11 @@ info:
   title: Order Management API
   version: 0.2.0
   description: 顧客の注文を参照・管理するためのサンプルAPI。
+servers:
+  - url: https://api.example.com/v1
+    description: 本番API
+security:
+  - bearerAuth: []
 paths:
   /orders:
     get:
@@ -101,6 +106,11 @@ paths:
         '409':
           description: 注文をキャンセルできません。
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     OrderListResponse:
       type: object

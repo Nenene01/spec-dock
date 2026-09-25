@@ -58,6 +58,18 @@ function mediaTypeFromContent(content) {
   return Object.keys(content ?? {})[0];
 }
 
+function mediaTypesFromContent(content) {
+  return Object.keys(content ?? {});
+}
+
+function normalizeSecurity(requirements, schemes) {
+  return (requirements ?? []).map((requirement) => Object.entries(requirement).map(([name, scopes]) => ({ name, scopes, scheme: schemes?.[name] }))).flat();
+}
+
+function normalizeHeaders(headers, schemas) {
+  return Object.entries(headers ?? {}).map(([name, header]) => ({ name, description: header.description, required: header.required ?? false, schema: summarizeSchema(header.schema, schemas) }));
+}
+
 function normalizeParameters(parameters, schemas) {
   return (parameters ?? []).map((parameter) => ({
     name: parameter.name,
@@ -71,6 +83,7 @@ function normalizeParameters(parameters, schemas) {
 export function parseOpenApiOperations(document, file) {
   const operations = [];
   const schemas = document?.components?.schemas ?? {};
+  const securitySchemes = document?.components?.securitySchemes ?? {};
   for (const [path, pathItem] of Object.entries(document?.paths ?? {})) {
     for (const [method, operation] of Object.entries(pathItem ?? {})) {
       if (!methods.has(method) || !operation) continue;
@@ -79,6 +92,8 @@ export function parseOpenApiOperations(document, file) {
       const responses = Object.entries(operation.responses ?? {}).map(([status, definition]) => ({
         status,
         description: definition.description,
+        contentTypes: mediaTypesFromContent(definition.content),
+        headers: normalizeHeaders(definition.headers, schemas),
         schema: schemaFromContent(definition.content, schemas),
       }));
       operations.push({
@@ -87,8 +102,10 @@ export function parseOpenApiOperations(document, file) {
         operationId: operation.operationId,
         summary: operation.summary ?? operation.description ?? "",
         tags: operation.tags ?? [],
+        servers: (operation.servers ?? document.servers ?? []).map((server) => ({ url: server.url, description: server.description })),
+        security: normalizeSecurity(operation.security ?? document.security, securitySchemes),
         parameters,
-        requestBody: operation.requestBody ? { required: operation.requestBody.required ?? false, description: operation.requestBody.description, contentType: mediaTypeFromContent(operation.requestBody.content), schema: schemaFromContent(operation.requestBody.content, schemas) } : undefined,
+        requestBody: operation.requestBody ? { required: operation.requestBody.required ?? false, description: operation.requestBody.description, contentType: mediaTypeFromContent(operation.requestBody.content), contentTypes: mediaTypesFromContent(operation.requestBody.content), schema: schemaFromContent(operation.requestBody.content, schemas) } : undefined,
         response,
         schema: schemaFromContent(responseDefinition?.content, schemas)?.ref,
         responses,
