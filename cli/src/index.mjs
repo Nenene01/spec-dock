@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { createServer } from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
 import { join, resolve } from "node:path";
 import { buildMermaidEr } from "../../packages/readers/src/prisma.mjs";
 import { loadScan, scanProject } from "../../packages/core/src/scan.mjs";
@@ -16,6 +17,45 @@ const command = process.argv[2] ?? "help";
 function option(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+async function walkFiles(dir, result = []) {
+  let entries;
+  try { entries = await readdir(dir, { withFileTypes: true }); } catch { return result; }
+  for (const entry of entries) {
+    if (["node_modules", ".git", ".specdock", "dist"].includes(entry.name)) continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) await walkFiles(path, result);
+    else result.push(path);
+  }
+  return result;
+}
+
+function unique(values) { return [...new Set(values.filter(Boolean))]; }
+function relativePath(file) { return file.replace(`${project}/`, ""); }
+
+async function init() {
+  const configFile = join(project, "spec-dock.config.json");
+  let existing;
+  try { existing = await readFile(configFile, "utf8"); } catch { existing = null; }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    if (existing && !process.argv.includes("--force")) {
+      const answer = await rl.question("spec-dock.config.jsonは既に存在します。上書きしますか？ [y/N] ");
+      if (!/^y(es)?$/i.test(answer.trim())) { console.log("初期設定をキャンセルしました。"); return; }
+    }
+    const files = await walkFiles(project);
+    const prisma = files.filter((file) => file.endsWith(".prisma")).map(relativePath);
+    const openapi = files.filter((file) => /(^|\/)(openapi|api)\.(ya?ml|json)$/i.test(file)).map(relativePath);
+    const zod = unique(files.filter((file) => /\.(ts|tsx|js|jsx)$/.test(file) && /(schema|contract|api)/i.test(file)).map((file) => relativePath(file).replace(/\/[^/]+$/, "")));
+    const documents = unique(files.filter((file) => /\.md$/i.test(file)).map((file) => relativePath(file).split("/")[0]));
+    const ask = async (label, fallback) => { const answer = await rl.question(`${label} [${fallback || "なし"}] `); return answer.trim() || fallback; };
+    const askList = async (label, values) => (await ask(label, values.join(","))).split(",").map((value) => value.trim()).filter(Boolean);
+    const mode = await ask("API契約モード（contract-first / code-first）", "code-first");
+    const config = { api: { mode: ["contract-first", "code-first"].includes(mode) ? mode : "code-first" }, sources: { prisma: await askList("Prisma Schema", prisma), openapi: await askList("OpenAPI", openapi), zod: await askList("Zodディレクトリ", zod), documents: await askList("Documentsディレクトリ", documents) } };
+    await writeFile(configFile, `${JSON.stringify(config, null, 2)}\n`);
+    console.log(`初期設定を保存しました: ${configFile}`);
+  } finally { rl.close(); }
 }
 
 async function scan() {
@@ -82,10 +122,11 @@ async function serve({ watchProject = false } = {}) {
 }
 
 function help() {
-  console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock scan [--project <path>] [--out <path>]\n  specdock check [--project <path>] [--format human|json]\n  specdock build [--project <path>] [--out <path>] [--site-out <path>]\n  specdock serve [--project <path>] [--port <number>]\n  specdock dev   [--project <path>] [--port <number>]`);
+  console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock init  [--project <path>] [--force]\n  specdock scan  [--project <path>] [--out <path>]\n  specdock check [--project <path>] [--format human|json]\n  specdock build [--project <path>] [--out <path>] [--site-out <path>]\n  specdock serve [--project <path>] [--port <number>]\n  specdock dev   [--project <path>] [--port <number>]`);
 }
 
-if (command === "scan") await scan();
+if (command === "init") await init();
+else if (command === "scan") await scan();
 else if (command === "check") await check();
 else if (command === "build") await build();
 else if (command === "serve") await serve();
