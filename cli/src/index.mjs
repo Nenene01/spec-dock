@@ -63,7 +63,7 @@ async function serve({ watchProject = false } = {}) {
     if (file.includes("..")) return response.writeHead(403).end("Forbidden");
     try {
       const body = await readFile(join(siteDir, file));
-      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
+      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".css") ? "text/css; charset=utf-8" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
       response.writeHead(200, { "content-type": type }).end(body);
     } catch { response.writeHead(404).end("Not found"); }
   });
