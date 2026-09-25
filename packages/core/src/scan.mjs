@@ -32,6 +32,7 @@ export async function scanProject(project, outDir) {
   const markdownFiles = files.filter((file) => /\.md$/i.test(file));
   const models = [];
   const operations = [];
+  const openapiSchemas = [];
   const schemas = [];
   const documents = [];
   for (const file of prismaFiles) models.push(...parsePrismaModels(await readText(file), relative(project, file)));
@@ -39,10 +40,14 @@ export async function scanProject(project, outDir) {
   for (const file of openapiFiles) {
     const result = await readOpenApiFile(file);
     operations.push(...result.operations.map((operation) => ({ ...operation, file: relative(project, file) })));
+    openapiSchemas.push(...result.schemas.map((schema) => ({ ...schema, file: relative(project, file) })));
     if (result.error) openapiErrors.push({ file: relative(project, file), message: result.error });
   }
   for (const file of zodFiles) schemas.push(...parseZodSchemas(await readText(file), relative(project, file)));
   for (const file of markdownFiles) documents.push(parseMarkdownDocument(await readText(file), relative(project, file)));
+  for (const document of documents) {
+    document.relatedOperations = operations.filter((operation) => document.apiRefs?.some((reference) => reference.method === operation.method && reference.path === operation.path)).map((operation) => `${operation.method} ${operation.path}`);
+  }
   const model = {
     version: 1,
     project: ".",
@@ -50,7 +55,7 @@ export async function scanProject(project, outDir) {
     config,
     prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
     zod: { files: zodFiles.map((file) => relative(project, file)), schemas },
-    openapi: { files: openapiFiles.map((file) => relative(project, file)), operations, errors: openapiErrors },
+    openapi: { files: openapiFiles.map((file) => relative(project, file)), operations, schemas: openapiSchemas, errors: openapiErrors },
     markdown: { files: markdownFiles.map((file) => relative(project, file)), documents },
   };
   model.diagnostics = diagnostics(model);

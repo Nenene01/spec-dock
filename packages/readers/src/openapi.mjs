@@ -2,11 +2,45 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 
 const methods = new Set(["get", "post", "put", "patch", "delete", "options", "head", "trace"]);
 
-function schemaName(value) {
+function refName(value) {
   const reference = value?.$ref;
-  if (!reference) return undefined;
-  const match = reference.match(/^#\/components\/schemas\/([^/]+)$/);
+  const match = typeof reference === "string" && reference.match(/^#\/components\/schemas\/([^/]+)$/);
   return match?.[1];
+}
+
+function summarizeSchema(schema, schemas, seen = new Set()) {
+  if (!schema) return undefined;
+  const name = refName(schema);
+  if (name && schemas?.[name] && !seen.has(name)) {
+    const next = new Set(seen).add(name);
+    return { ...summarizeSchema(schemas[name], schemas, next), name, ref: name };
+  }
+  const result = {
+    name,
+    ref: name,
+    type: schema.type,
+    format: schema.format,
+    description: schema.description,
+    required: schema.required,
+    enum: schema.enum,
+    default: schema.default,
+    nullable: schema.nullable,
+    minimum: schema.minimum,
+    maximum: schema.maximum,
+    exclusiveMinimum: schema.exclusiveMinimum,
+    exclusiveMaximum: schema.exclusiveMaximum,
+    minLength: schema.minLength,
+    maxLength: schema.maxLength,
+    pattern: schema.pattern,
+    minItems: schema.minItems,
+    maxItems: schema.maxItems,
+  };
+  if (schema.items) result.items = summarizeSchema(schema.items, schemas, seen);
+  if (schema.properties) result.properties = Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, summarizeSchema(value, schemas, seen)]));
+  if (schema.allOf) result.allOf = schema.allOf.map((item) => summarizeSchema(item, schemas, seen));
+  if (schema.oneOf) result.oneOf = schema.oneOf.map((item) => summarizeSchema(item, schemas, seen));
+  if (schema.anyOf) result.anyOf = schema.anyOf.map((item) => summarizeSchema(item, schemas, seen));
+  return result;
 }
 
 function firstSuccessResponse(operation) {
@@ -15,19 +49,45 @@ function firstSuccessResponse(operation) {
     .sort(([a], [b]) => a.localeCompare(b))[0];
 }
 
+function schemaFromContent(content, schemas) {
+  const media = content?.["application/json"] ?? Object.values(content ?? {})[0];
+  return summarizeSchema(media?.schema, schemas);
+}
+
+function normalizeParameters(parameters, schemas) {
+  return (parameters ?? []).map((parameter) => ({
+    name: parameter.name,
+    in: parameter.in,
+    description: parameter.description,
+    required: parameter.required ?? false,
+    schema: summarizeSchema(parameter.schema, schemas),
+  }));
+}
+
 export function parseOpenApiOperations(document, file) {
   const operations = [];
+  const schemas = document?.components?.schemas ?? {};
   for (const [path, pathItem] of Object.entries(document?.paths ?? {})) {
     for (const [method, operation] of Object.entries(pathItem ?? {})) {
       if (!methods.has(method) || !operation) continue;
       const [response, responseDefinition] = firstSuccessResponse(operation) ?? [];
-      const content = responseDefinition?.content?.["application/json"] ?? Object.values(responseDefinition?.content ?? {})[0];
+      const parameters = normalizeParameters([...(pathItem.parameters ?? []), ...(operation.parameters ?? [])], schemas);
+      const responses = Object.entries(operation.responses ?? {}).map(([status, definition]) => ({
+        status,
+        description: definition.description,
+        schema: schemaFromContent(definition.content, schemas),
+      }));
       operations.push({
         path,
         method: method.toUpperCase(),
+        operationId: operation.operationId,
         summary: operation.summary ?? operation.description ?? "",
+        tags: operation.tags ?? [],
+        parameters,
+        requestBody: operation.requestBody ? { required: operation.requestBody.required ?? false, description: operation.requestBody.description, schema: schemaFromContent(operation.requestBody.content, schemas) } : undefined,
         response,
-        schema: schemaName(content?.schema),
+        schema: schemaFromContent(responseDefinition?.content, schemas)?.ref,
+        responses,
         file,
       });
     }
@@ -35,11 +95,16 @@ export function parseOpenApiOperations(document, file) {
   return operations;
 }
 
+export function parseOpenApiSchemas(document, file) {
+  const schemas = document?.components?.schemas ?? {};
+  return Object.entries(schemas).map(([name, schema]) => ({ name, file, schema: summarizeSchema(schema, schemas) }));
+}
+
 export async function readOpenApiFile(file) {
   try {
     const document = await SwaggerParser.parse(file);
-    return { operations: parseOpenApiOperations(document, file), error: null };
+    return { operations: parseOpenApiOperations(document, file), schemas: parseOpenApiSchemas(document, file), error: null };
   } catch (error) {
-    return { operations: [], error: error instanceof Error ? error.message : String(error) };
+    return { operations: [], schemas: [], error: error instanceof Error ? error.message : String(error) };
   }
 }
