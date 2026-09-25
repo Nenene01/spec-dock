@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { buildMermaidEr } from "../../packages/readers/src/prisma.mjs";
 import { loadScan, scanProject } from "../../packages/core/src/scan.mjs";
 import { renderStudioHtml } from "../../packages/studio/src/render.mjs";
+import { build as viteBuild } from "vite";
 
 const project = resolve(option("--project") ?? process.cwd());
 const outDir = resolve(option("--out") ?? join(project, ".specdock"));
@@ -47,6 +48,8 @@ async function build() {
   await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
   await writeFile(join(siteDir, "index.html"), renderStudioHtml(model, mermaid));
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
+  process.env.SPECDOCK_SITE_OUT = siteDir;
+  await viteBuild({ configFile: resolve("packages/studio/vite.config.mjs"), logLevel: "error" });
   console.log(`Built SpecDock Studio: ${join(siteDir, "index.html")}`);
 }
 
@@ -60,7 +63,7 @@ async function serve({ watchProject = false } = {}) {
     if (file.includes("..")) return response.writeHead(403).end("Forbidden");
     try {
       const body = await readFile(join(siteDir, file));
-      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
+      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
       response.writeHead(200, { "content-type": type }).end(body);
     } catch { response.writeHead(404).end("Not found"); }
   });
