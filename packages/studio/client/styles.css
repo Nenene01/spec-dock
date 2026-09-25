@@ -16,3 +16,5 @@
 .tab-context-menu{position:fixed;z-index:100;border:1px solid #344154;border-radius:7px;background:#151d27;box-shadow:0 12px 30px #0008;padding:5px;min-width:220px}.tab-context-menu button{display:block;width:100%;border:0;border-radius:4px;background:transparent;color:#d6d9e0;text-align:left;padding:8px 10px;font-size:12px;cursor:pointer}.tab-context-menu button:hover:not(:disabled){background:#263653;color:#f3f4f6}.tab-context-menu button:disabled{color:#536174;cursor:default}
 .drop-hint{display:none!important}
 .explorer .overview-link{display:flex;align-items:center;gap:7px}
+.editor-pane.drop-left::before,.editor-pane.drop-right::after{display:none}
+.editor-pane.drop-pane::after{content:"";position:absolute;z-index:5;inset:0;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.7);pointer-events:none}
