@@ -14,7 +14,8 @@
     "build": "node ./cli/src/index.mjs build",
     "studio": "node ./cli/src/index.mjs serve",
     "dev": "node ./cli/src/index.mjs dev",
-    "test": "node --test"
+    "test": "node --test",
+    "governance:check": "node ./scripts/governance-check.mjs"
   },
   "engines": {
     "node": ">=20"

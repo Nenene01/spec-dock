@@ -52,6 +52,8 @@ specdock dev    # Studioを起動し、ソース変更を監視
 
 仕様は[specs/](specs/README.md)、アーキテクチャは[docs/architecture/](docs/architecture/README.md)、設計判断は[docs/adr/](docs/adr/README.md)、開発手順は[Development guide](docs/guides/development-loop.md)、横断ルールは[rules/](rules/README.md)に分けて管理します。
 
+AIエージェントを利用した開発体制は[Agent development loop](docs/guides/agent-loop.md)、共通原則は[CONSTITUTION.md](CONSTITUTION.md)を参照してください。
+
 ## 開発
 
 ```sh

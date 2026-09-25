@@ -12,5 +12,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm run governance:check
       - run: npm test
       - run: npm run check -- --project examples/order-management --format json
