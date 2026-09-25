@@ -12,6 +12,8 @@ SpecDockは、複数のソースを同時に編集するDSLではない。既存
 
 ## API契約モード
 
+プロジェクトルートの`spec-dock.config.json`で、API契約モードを明示する。
+
 ```text
 contract-first
   OpenAPIが正本

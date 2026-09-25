@@ -4,6 +4,7 @@ import { parseMarkdownDocument } from "../../readers/src/markdown.mjs";
 import { parseOpenApiOperations } from "../../readers/src/openapi.mjs";
 import { buildMermaidEr, parsePrismaModels } from "../../readers/src/prisma.mjs";
 import { parseZodSchemas } from "../../readers/src/zod.mjs";
+import { loadProjectConfig } from "./config.mjs";
 import { diagnostics } from "./diagnostics.mjs";
 
 async function walk(dir, result = []) {
@@ -24,6 +25,7 @@ async function readText(path) {
 
 export async function scanProject(project, outDir) {
   const files = await walk(project);
+  const config = await loadProjectConfig(project);
   const prismaFiles = files.filter((file) => file.endsWith(".prisma"));
   const zodFiles = files.filter((file) => /\.(ts|tsx|js|jsx)$/.test(file) && /(schema|contract|api)/i.test(file));
   const openapiFiles = files.filter((file) => /(^|\/)(openapi|api)\.(ya?ml|json)$/i.test(file));
@@ -40,6 +42,7 @@ export async function scanProject(project, outDir) {
     version: 1,
     project: ".",
     scannedAt: new Date().toISOString(),
+    config,
     prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
     zod: { files: zodFiles.map((file) => relative(project, file)), schemas },
     openapi: { files: openapiFiles.map((file) => relative(project, file)), operations },

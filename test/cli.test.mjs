@@ -10,6 +10,11 @@ const root = new URL("..", import.meta.url).pathname;
 const example = join(root, "examples/order-management");
 const output = join(example, ".specdock");
 
+function parseJsonOutput(stdout) {
+  const start = stdout.indexOf("{");
+  return JSON.parse(stdout.slice(start));
+}
+
 test.after(async () => {
   await rm(output, { recursive: true, force: true });
 });
@@ -24,6 +29,7 @@ test("scan finds project source categories and Prisma models", async () => {
   assert.equal(scan.openapi.operations[0].method, "GET");
   assert.equal(scan.openapi.operations[0].path, "/orders");
   assert.equal(scan.openapi.operations[0].schema, "OrderResponse");
+  assert.equal(scan.config.api.mode, "code-first");
   assert.equal(scan.zod.schemas[0].name, "OrderResponse");
   assert.equal(scan.zod.schemas[0].fields[0].description, "Order identifier");
   assert.equal(scan.markdown.documents[0].title, "Order management");
@@ -37,6 +43,36 @@ test("check supports JSON diagnostics", async () => {
   const result = await run(process.execPath, [join(root, "cli/src/index.mjs"), "check", "--project", example, "--format", "json"]);
   const report = JSON.parse(result.stdout);
   assert.deepEqual(report.diagnostics, []);
+});
+
+test("contract-first mode does not require OpenAPI references to match Zod", async () => {
+  const project = join(root, "examples/order-management");
+  const config = join(project, "spec-dock.config.json");
+  const original = await readFile(config, "utf8");
+  await import("node:fs/promises").then(({ writeFile }) => writeFile(config, '{"api":{"mode":"contract-first"}}\n'));
+  try {
+    await rm(output, { recursive: true, force: true });
+    const result = await run(process.execPath, [join(root, "cli/src/index.mjs"), "check", "--project", project, "--format", "json"]);
+    assert.deepEqual(parseJsonOutput(result.stdout).diagnostics, []);
+  } finally {
+    await import("node:fs/promises").then(({ writeFile }) => writeFile(config, original));
+  }
+});
+
+test("invalid project config is reported as an error", async () => {
+  const project = join(root, "examples/order-management");
+  const config = join(project, "spec-dock.config.json");
+  const original = await readFile(config, "utf8");
+  await import("node:fs/promises").then(({ writeFile }) => writeFile(config, "{\n"));
+  try {
+    await rm(output, { recursive: true, force: true });
+    await assert.rejects(
+      run(process.execPath, [join(root, "cli/src/index.mjs"), "check", "--project", project, "--format", "json"]),
+      (error) => error.code === 1 && parseJsonOutput(error.stdout).diagnostics.some((item) => item.code === "E004"),
+    );
+  } finally {
+    await import("node:fs/promises").then(({ writeFile }) => writeFile(config, original));
+  }
 });
 
 test("build creates a browsable HTML artifact", async () => {
