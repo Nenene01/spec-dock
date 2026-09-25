@@ -49,3 +49,14 @@ specdock build  # Studioが読む成果物を生成
 ```
 
 詳細は[Phase 0計画](docs/phase-0-plan.md)を参照してください。
+
+## 開発
+
+```sh
+npm test
+npm run scan -- --project examples/order-management
+npm run check -- --project examples/order-management --format json
+npm run build -- --project examples/order-management
+```
+
+生成物は対象プロジェクトの`.specdock/`に出力されます。

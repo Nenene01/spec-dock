@@ -11,7 +11,8 @@
     "specdock": "node ./cli/src/index.mjs",
     "scan": "node ./cli/src/index.mjs scan",
     "check": "node ./cli/src/index.mjs check",
-    "build": "node ./cli/src/index.mjs build"
+    "build": "node ./cli/src/index.mjs build",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"
