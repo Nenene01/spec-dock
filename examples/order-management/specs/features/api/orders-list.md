@@ -1,3 +1,11 @@
+---
+title: 注文一覧API
+summary: 注文一覧をページングして取得する。
+api:
+  method: GET
+  path: /orders
+---
+
 # 注文一覧API
 
 注文一覧をページングして取得する。

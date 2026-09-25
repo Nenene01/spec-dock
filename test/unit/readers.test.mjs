@@ -42,3 +42,13 @@ test("Markdown reader extracts local links", () => {
   const document = parseMarkdownDocument("# Orders\n\nSee [API](../openapi.yaml) and [missing](missing.md).", "docs/orders.md");
   assert.deepEqual(document.links, ["../openapi.yaml", "missing.md"]);
 });
+
+test("Markdown reader exposes frontmatter integration keys", () => {
+  const document = parseMarkdownDocument("---\ntitle: Create order\nsummary: Create an order.\napi:\n  method: POST\n  path: /orders\n---\n\n# Ignored title\n\nBody.", "docs/orders.md");
+  assert.equal(document.title, "Create order");
+  assert.equal(document.summary, "Create an order.");
+  assert.deepEqual(document.frontmatter.api, { method: "POST", path: "/orders" });
+  assert.deepEqual(document.apiRefs[0], { method: "POST", path: "/orders" });
+  assert.doesNotMatch(document.body, /^---/);
+  assert.doesNotMatch(document.body, /title: Create order/);
+});

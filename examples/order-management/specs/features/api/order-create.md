@@ -1,3 +1,11 @@
+---
+title: 注文作成API
+summary: 顧客と商品明細を指定して注文を作成する。
+api:
+  method: POST
+  path: /orders
+---
+
 # 注文作成API
 
 顧客と商品明細を指定して注文を作成する。

@@ -1,3 +1,11 @@
+---
+title: 注文キャンセルAPI
+summary: 出荷前の注文をキャンセルする。
+api:
+  method: POST
+  path: /orders/{orderId}/cancel
+---
+
 # 注文キャンセルAPI
 
 出荷前の注文をキャンセルする。

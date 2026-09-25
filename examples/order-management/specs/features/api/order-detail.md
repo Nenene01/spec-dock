@@ -1,3 +1,11 @@
+---
+title: 注文詳細API
+summary: 注文番号ではなく注文IDを指定して、顧客・明細を含む注文詳細を取得する。
+api:
+  method: GET
+  path: /orders/{orderId}
+---
+
 # 注文詳細API
 
 注文番号ではなく注文IDを指定して、顧客・明細を含む注文詳細を取得する。
