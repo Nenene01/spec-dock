@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { join, relative, resolve } from "node:path";
 
 const cwd = process.cwd();
@@ -264,11 +265,43 @@ async function build() {
   console.log(`Built SpecDock site: ${join(siteDir, "index.html")}`);
 }
 
+async function serve() {
+  await build();
+  const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
+  const port = Number(option("--port") ?? 4173);
+  const server = createServer(async (request, response) => {
+    const requested = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`).pathname;
+    const file = requested === "/" ? "index.html" : requested.replace(/^\//, "");
+    if (file.includes("..")) {
+      response.writeHead(403).end("Forbidden");
+      return;
+    }
+    const path = join(siteDir, file);
+    try {
+      const body = await readFile(path);
+      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
+      response.writeHead(200, { "content-type": type });
+      response.end(body);
+    } catch {
+      response.writeHead(404).end("Not found");
+    }
+  });
+  server.on("error", (error) => {
+    console.error(`Unable to start Studio: ${error.message}`);
+    server.close(() => process.exit(1));
+  });
+  server.listen(port, "127.0.0.1", () => {
+    console.log(`SpecDock Studio: http://localhost:${port}`);
+    console.log("Press Ctrl-C to stop.");
+  });
+}
+
 function help() {
-  console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock scan [--project <path>] [--out <path>]\n  specdock check [--project <path>] [--format human|json]\n  specdock build [--project <path>] [--out <path>] [--site-out <path>]`);
+  console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock scan [--project <path>] [--out <path>]\n  specdock check [--project <path>] [--format human|json]\n  specdock build [--project <path>] [--out <path>] [--site-out <path>]\n  specdock serve [--project <path>] [--port <number>]`);
 }
 
 if (command === "scan") await scan();
 else if (command === "check") await check();
 else if (command === "build") await build();
+else if (command === "serve") await serve();
 else help();
