@@ -11,6 +11,7 @@ model Customer {
   name   String
   /// Orders placed by the customer.
   orders Order[]
+  @@index([name], map: "customer_name_idx")
 }
 
 /// Order placed by a customer.
@@ -25,4 +26,39 @@ model Order {
   customer   Customer @relation(fields: [customerId], references: [id])
   /// Creation timestamp.
   createdAt  DateTime @default(now())
+  /// Order lines.
+  items      OrderItem[]
+  @@index([customerId, createdAt], map: "order_customer_created_idx")
+}
+
+/// Product available for ordering.
+model Product {
+  /// Product identifier.
+  id          String      @id @default(uuid())
+  /// Public product name.
+  name        String
+  /// Current unit price in yen.
+  unitPrice   Int         @default(0)
+  /// Whether the product can be ordered.
+  isActive    Boolean     @default(true)
+  /// Order lines containing this product.
+  orderItems  OrderItem[]
+  @@index([isActive], map: "product_active_idx")
+}
+
+/// A product line belonging to an order.
+model OrderItem {
+  /// Order line identifier.
+  id         String  @id @default(uuid())
+  /// Owning order identifier.
+  orderId    String
+  /// Product identifier.
+  productId  String
+  /// Number of products ordered.
+  quantity   Int
+  /// Price captured at order time.
+  unitPrice  Int
+  order      Order   @relation(fields: [orderId], references: [id])
+  product    Product @relation(fields: [productId], references: [id])
+  @@unique([orderId, productId], map: "order_item_order_product_unique")
 }

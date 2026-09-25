@@ -22,20 +22,20 @@ test.after(async () => {
 test("scan finds project source categories and Prisma models", async () => {
   await run(process.execPath, [join(root, "cli/src/index.mjs"), "scan", "--project", example]);
   const scan = JSON.parse(await readFile(join(output, "scan.json"), "utf8"));
-  assert.equal(scan.prisma.models.length, 2);
+  assert.equal(scan.prisma.models.length, 4);
   assert.equal(scan.zod.files.length, 1);
   assert.equal(scan.openapi.files.length, 1);
-  assert.equal(scan.openapi.operations.length, 1);
+  assert.equal(scan.openapi.operations.length, 4);
   assert.equal(scan.openapi.operations[0].method, "GET");
   assert.equal(scan.openapi.operations[0].path, "/orders");
-  assert.equal(scan.openapi.operations[0].schema, "OrderResponse");
+  assert.equal(scan.openapi.operations[0].schema, "OrderListResponse");
   assert.equal(scan.config.api.mode, "code-first");
-  assert.equal(scan.zod.schemas[0].name, "OrderResponse");
+  assert.ok(scan.zod.schemas.some((schema) => schema.name === "OrderDetail"));
   assert.equal(scan.zod.schemas[0].fields[0].description, "Order identifier");
-  assert.equal(scan.markdown.documents[0].title, "Order management");
-  assert.equal(scan.markdown.files.length, 1);
+  assert.ok(scan.markdown.documents.some((document) => document.title === "Order management"));
+  assert.equal(scan.markdown.files.length, 5);
   assert.equal(scan.prisma.models[0].fields[0].name, "id");
-  assert.equal(scan.prisma.models[0].fields[2].isRelation, true);
+  assert.equal(scan.prisma.models.find((model) => model.name === "Order").fields.find((field) => field.name === "customer").isRelation, true);
   assert.equal(scan.diagnostics.length, 0);
 });
 

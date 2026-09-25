@@ -1,19 +1,216 @@
 openapi: 3.1.0
 info:
   title: Order Management API
-  version: 0.1.0
+  version: 0.2.0
+  description: A small API surface for browsing and managing customer orders.
 paths:
   /orders:
     get:
+      operationId: listOrders
       summary: List orders
+      parameters:
+        - name: page
+          in: query
+          description: Page number starting at one.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of orders per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, shipped, cancelled]
       responses:
         '200':
-          description: Orders
+          description: A paginated list of orders.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OrderResponse'
+                $ref: '#/components/schemas/OrderListResponse'
+    post:
+      operationId: createOrder
+      summary: Create an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+      responses:
+        '201':
+          description: Created order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '422':
+          description: Validation error.
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      summary: Get an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '404':
+          description: Order not found.
+  /orders/{orderId}/cancel:
+    post:
+      operationId: cancelOrder
+      summary: Cancel an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+      responses:
+        '200':
+          description: Cancelled order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '409':
+          description: Order cannot be cancelled.
 components:
   schemas:
-    OrderResponse:
+    OrderListResponse:
       type: object
+      required: [items, page, limit, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+    OrderSummary:
+      type: object
+      required: [id, orderNo, status, totalAmount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNo:
+          type: string
+          minLength: 1
+          maxLength: 32
+        status:
+          type: string
+          enum: [pending, paid, shipped, cancelled]
+        totalAmount:
+          type: integer
+          minimum: 0
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          required: [customer, items, createdAt]
+          properties:
+            customer:
+              $ref: '#/components/schemas/CustomerSummary'
+            items:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            createdAt:
+              type: string
+              format: date-time
+    OrderItem:
+      type: object
+      required: [productId, productName, quantity, unitPrice]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        unitPrice:
+          type: integer
+          minimum: 0
+    CustomerSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+    OrderCreateRequest:
+      type: object
+      required: [customerId, items]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/OrderItemInput'
+    OrderItemInput:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    CancelOrderRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 240

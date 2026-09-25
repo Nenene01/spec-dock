@@ -1,5 +1,14 @@
 import { dirname, normalize, posix } from "node:path";
 
+function schemaReferences(schema, result = new Set()) {
+  if (!schema) return result;
+  if (schema.ref) result.add(schema.ref);
+  for (const field of Object.values(schema.properties ?? {})) schemaReferences(field, result);
+  schemaReferences(schema.items, result);
+  for (const item of [...(schema.allOf ?? []), ...(schema.oneOf ?? []), ...(schema.anyOf ?? [])]) schemaReferences(item, result);
+  return result;
+}
+
 export function diagnostics(model) {
   const items = [];
   const apiMode = model.config?.api?.mode;
@@ -15,9 +24,12 @@ export function diagnostics(model) {
     const zodNames = new Set(model.zod.schemas.map((schema) => schema.name));
     const referencedSchemas = new Set();
     for (const operation of model.openapi.operations) {
-      if (operation.schema) {
-        referencedSchemas.add(operation.schema);
-        if (!zodNames.has(operation.schema)) items.push({ code: "E003", level: "error", message: `OpenAPIの参照先Zodスキーマがありません: ${operation.schema}`, source: operation.file });
+      const references = schemaReferences(operation.requestBody?.schema);
+      if (operation.schema) references.add(operation.schema);
+      for (const response of operation.responses ?? []) schemaReferences(response.schema, references);
+      for (const reference of references) {
+        referencedSchemas.add(reference);
+        if (!zodNames.has(reference)) items.push({ code: "E003", level: "error", message: `OpenAPIの参照先Zodスキーマがありません: ${reference}`, source: operation.file });
       }
     }
     for (const schema of model.zod.schemas) {

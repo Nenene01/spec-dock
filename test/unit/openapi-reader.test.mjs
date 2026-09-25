@@ -7,7 +7,7 @@ test("OpenAPI reader parses the YAML example through the standard parser", async
   const result = await readOpenApiFile(fileURLToPath(new URL("../../examples/order-management/openapi.yaml", import.meta.url)));
   assert.equal(result.error, null);
   assert.equal(result.operations[0].path, "/orders");
-  assert.equal(result.operations[0].schema, "OrderResponse");
+  assert.equal(result.operations[0].schema, "OrderListResponse");
 });
 
 test("OpenAPI reader returns a diagnostic-ready error for invalid input", async () => {
