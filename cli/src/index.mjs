@@ -94,6 +94,44 @@ function parsePrismaFields(body) {
   return fields;
 }
 
+function parseOpenApiOperations(text, file) {
+  const operations = [];
+  let path;
+  let operation;
+  let summary;
+  let response;
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.replace(/\r$/, "");
+    const pathMatch = line.match(/^\s{2}(\/[^:]+):\s*$/);
+    const methodMatch = line.match(/^\s{4}(get|post|put|patch|delete|options|head|trace):\s*$/i);
+    const summaryMatch = line.match(/^\s{6}summary:\s*(.*)$/);
+    const responseMatch = line.match(/^\s{8}'?([1-5][0-9]{2})'?:\s*$/);
+    if (pathMatch) {
+      path = pathMatch[1];
+      operation = undefined;
+      continue;
+    }
+    if (methodMatch && path) {
+      if (operation) operations.push({ path, ...operation, file });
+      operation = { method: methodMatch[1].toUpperCase(), summary: "", response: undefined };
+      summary = undefined;
+      response = undefined;
+      continue;
+    }
+    if (summaryMatch && operation) {
+      summary = summaryMatch[1].trim();
+      operation.summary = summary;
+      continue;
+    }
+    if (responseMatch && operation) {
+      response = responseMatch[1];
+      operation.response = response;
+    }
+  }
+  if (path && operation) operations.push({ path, ...operation, file });
+  return operations;
+}
+
 async function scan() {
   const files = await walk(project);
   const prismaFiles = files.filter((file) => file.endsWith(".prisma"));
@@ -101,6 +139,7 @@ async function scan() {
   const openapiFiles = files.filter((file) => /(^|\/)(openapi|api)\.(ya?ml|json)$/i.test(file));
   const markdownFiles = files.filter((file) => /\.md$/i.test(file));
   const models = [];
+  const operations = [];
   for (const file of prismaFiles) {
     const text = await readText(file);
     const modelPattern = /((?:^|\n)\s*\/\/\/[^\n]*\n\s*)*\s*model\s+(\w+)\s*\{([\s\S]*?)\n\s*\}/g;
@@ -109,13 +148,16 @@ async function scan() {
       models.push({ name: match[2], description: comments.join(" "), fields: parsePrismaFields(match[3]), file: relative(project, file) });
     }
   }
+  for (const file of openapiFiles) {
+    operations.push(...parseOpenApiOperations(await readText(file), relative(project, file)));
+  }
   const model = {
     version: 1,
     project: project,
     scannedAt: new Date().toISOString(),
     prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
     zod: { files: zodFiles.map((file) => relative(project, file)) },
-    openapi: { files: openapiFiles.map((file) => relative(project, file)) },
+    openapi: { files: openapiFiles.map((file) => relative(project, file)), operations },
     markdown: { files: markdownFiles.map((file) => relative(project, file)) },
   };
   model.diagnostics = diagnostics(model);
@@ -153,7 +195,8 @@ async function build() {
   const siteDir = resolve(option("--site-out") ?? join(outDir, "site"));
   await mkdir(siteDir, { recursive: true });
   const modelCards = model.prisma.models.map((item) => `<article><h3>${item.name}</h3><p>${item.description || "No description"}</p><table><thead><tr><th>Field</th><th>Type</th><th>Flags</th><th>Description</th></tr></thead><tbody>${item.fields.map((field) => `<tr><td><code>${field.name}</code></td><td>${field.type}${field.isArray ? "[]" : ""}${field.isOptional ? "?" : ""}</td><td>${[field.isRelation ? "relation" : "", field.attributes.includes("@id") ? "primary key" : ""].filter(Boolean).join(", ")}</td><td>${field.description || ""}</td></tr>`).join("")}</tbody></table></article>`).join("");
-  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>Zod files: ${model.zod.files.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main>`;
+  const operationRows = model.openapi.operations.map((item) => `<tr><td><code>${item.method}</code></td><td><code>${item.path}</code></td><td>${item.summary || ""}</td><td>${item.response || ""}</td></tr>`).join("");
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpecDock</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 20px}header{border-bottom:1px solid #888;margin-bottom:28px}article{border:1px solid #888;border-radius:8px;padding:16px;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #888;padding:8px;vertical-align:top}code{background:#8883;padding:2px 4px;border-radius:3px}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{border:1px solid #888;border-radius:999px;padding:6px 10px}</style><header><h1>SpecDock</h1><p>Source-anchored specifications.</p></header><main><h2>Overview</h2><div class="summary"><span>Prisma models: ${model.prisma.models.length}</span><span>API operations: ${model.openapi.operations.length}</span><span>Zod files: ${model.zod.files.length}</span><span>OpenAPI files: ${model.openapi.files.length}</span><span>Markdown files: ${model.markdown.files.length}</span></div><h2>API</h2><table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Response</th></tr></thead><tbody>${operationRows || "<tr><td colspan=4>No API operations detected.</td></tr>"}</tbody></table><h2>Database</h2>${modelCards || "<p>No Prisma models detected.</p>"}</main>`;
   await writeFile(join(siteDir, "index.html"), html);
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
   console.log(`Built SpecDock site: ${join(siteDir, "index.html")}`);
