@@ -1,0 +1,20 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+/// Customer who places orders.
+model Customer {
+  id     String  @id @default(uuid())
+  name   String
+  orders Order[]
+}
+
+/// Order placed by a customer.
+model Order {
+  id         String   @id @default(uuid())
+  orderNo    String   @unique
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  createdAt  DateTime @default(now())
+}

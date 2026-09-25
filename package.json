@@ -1,0 +1,20 @@
+{
+  "name": "spec-dock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Source-anchored specifications for Prisma, Zod, OpenAPI, and Markdown.",
+  "type": "module",
+  "bin": {
+    "specdock": "./cli/src/index.mjs"
+  },
+  "scripts": {
+    "specdock": "node ./cli/src/index.mjs",
+    "scan": "node ./cli/src/index.mjs scan",
+    "check": "node ./cli/src/index.mjs check",
+    "build": "node ./cli/src/index.mjs build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
