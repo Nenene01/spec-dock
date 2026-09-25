@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { parseOpenApiOperations } from "../../packages/readers/src/openapi.mjs";
 import { buildMermaidEr, parsePrismaModels } from "../../packages/readers/src/prisma.mjs";
 import { parseZodSchemas } from "../../packages/readers/src/zod.mjs";
+import { parseMarkdownDocument } from "../../packages/readers/src/markdown.mjs";
 
 test("Prisma reader extracts models, fields, and relations", () => {
   const models = parsePrismaModels("/// A customer.\nmodel Customer {\n  id String @id\n  orders Order[]\n}\n\nmodel Order {\n  id String @id\n  customer Customer\n}", "schema.prisma");
@@ -20,4 +21,9 @@ test("Zod reader extracts fields and descriptions", () => {
   const schemas = parseZodSchemas('export const OrderResponse = z.object({\n  id: z.string().describe("Order identifier"),\n});', "order.ts");
   assert.equal(schemas[0].name, "OrderResponse");
   assert.equal(schemas[0].fields[0].description, "Order identifier");
+});
+
+test("Markdown reader extracts local links", () => {
+  const document = parseMarkdownDocument("# Orders\n\nSee [API](../openapi.yaml) and [missing](missing.md).", "docs/orders.md");
+  assert.deepEqual(document.links, ["../openapi.yaml", "missing.md"]);
 });
