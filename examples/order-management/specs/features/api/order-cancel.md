@@ -1,4 +1,4 @@
-# Cancel order API
+# 注文キャンセルAPI
 
 出荷前の注文をキャンセルする。
 

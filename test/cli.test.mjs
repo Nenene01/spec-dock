@@ -31,8 +31,8 @@ test("scan finds project source categories and Prisma models", async () => {
   assert.equal(scan.openapi.operations[0].schema, "OrderListResponse");
   assert.equal(scan.config.api.mode, "code-first");
   assert.ok(scan.zod.schemas.some((schema) => schema.name === "OrderDetail"));
-  assert.equal(scan.zod.schemas[0].fields[0].description, "Order identifier");
-  assert.ok(scan.markdown.documents.some((document) => document.title === "Order management"));
+  assert.equal(scan.zod.schemas.find((schema) => schema.name === "OrderSummary").fields[0].description, "注文ID");
+  assert.ok(scan.markdown.documents.some((document) => document.title === "注文管理"));
   assert.equal(scan.markdown.files.length, 5);
   assert.equal(scan.prisma.models[0].fields[0].name, "id");
   assert.equal(scan.prisma.models.find((model) => model.name === "Order").fields.find((field) => field.name === "customer").isRelation, true);
@@ -85,6 +85,8 @@ test("build creates a browsable HTML artifact", async () => {
   assert.match(html, /API operations/);
   assert.match(html, /Database/);
   assert.match(html, /Search specifications/);
+  assert.match(html, /仕様を検索/);
+  assert.match(html, /API一覧/);
   assert.match(html, /window.__SPEC_DOCK__/);
   assert.match(html, /erDiagram/);
   await access(join(site, "schema.mmd"));

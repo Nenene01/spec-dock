@@ -2,23 +2,23 @@ openapi: 3.1.0
 info:
   title: Order Management API
   version: 0.2.0
-  description: A small API surface for browsing and managing customer orders.
+  description: 顧客の注文を参照・管理するためのサンプルAPI。
 paths:
   /orders:
     get:
       operationId: listOrders
-      summary: List orders
+      summary: 注文一覧を取得する
       parameters:
         - name: page
           in: query
-          description: Page number starting at one.
+          description: 1から始まるページ番号。
           schema:
             type: integer
             minimum: 1
             default: 1
         - name: limit
           in: query
-          description: Number of orders per page.
+          description: 1ページあたりの注文数。
           schema:
             type: integer
             minimum: 1
@@ -31,14 +31,14 @@ paths:
             enum: [pending, paid, shipped, cancelled]
       responses:
         '200':
-          description: A paginated list of orders.
+          description: ページングされた注文一覧。
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderListResponse'
     post:
       operationId: createOrder
-      summary: Create an order
+      summary: 注文を作成する
       requestBody:
         required: true
         content:
@@ -47,17 +47,17 @@ paths:
               $ref: '#/components/schemas/OrderCreateRequest'
       responses:
         '201':
-          description: Created order.
+          description: 作成された注文。
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDetail'
         '422':
-          description: Validation error.
+          description: 入力値エラー。
   /orders/{orderId}:
     get:
       operationId: getOrder
-      summary: Get an order
+      summary: 注文詳細を取得する
       parameters:
         - name: orderId
           in: path
@@ -67,17 +67,17 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Order details.
+          description: 注文詳細。
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDetail'
         '404':
-          description: Order not found.
+          description: 注文が見つかりません。
   /orders/{orderId}/cancel:
     post:
       operationId: cancelOrder
-      summary: Cancel an order
+      summary: 注文をキャンセルする
       parameters:
         - name: orderId
           in: path
@@ -93,13 +93,13 @@ paths:
               $ref: '#/components/schemas/CancelOrderRequest'
       responses:
         '200':
-          description: Cancelled order.
+          description: キャンセルされた注文。
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDetail'
         '409':
-          description: Order cannot be cancelled.
+          description: 注文をキャンセルできません。
 components:
   schemas:
     OrderListResponse:

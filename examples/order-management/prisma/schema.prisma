@@ -3,60 +3,60 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-/// Customer who places orders.
+/// 注文を行う顧客。
 model Customer {
-  /// Customer identifier.
+  /// 顧客ID。
   id     String  @id @default(uuid())
-  /// Display name.
+  /// 表示名。
   name   String
-  /// Orders placed by the customer.
+  /// 顧客が行った注文。
   orders Order[]
   @@index([name], map: "customer_name_idx")
 }
 
-/// Order placed by a customer.
+/// 顧客が行う注文。
 model Order {
-  /// Order identifier.
+  /// 注文ID。
   id         String   @id @default(uuid())
-  /// Human-readable unique order number.
+  /// 利用者が確認できる一意な注文番号。
   orderNo    String   @unique
-  /// Owning customer identifier.
+  /// 顧客ID。
   customerId String
-  /// Owning customer.
+  /// 注文者。
   customer   Customer @relation(fields: [customerId], references: [id])
-  /// Creation timestamp.
+  /// 作成日時。
   createdAt  DateTime @default(now())
-  /// Order lines.
+  /// 注文明細。
   items      OrderItem[]
   @@index([customerId, createdAt], map: "order_customer_created_idx")
 }
 
-/// Product available for ordering.
+/// 注文可能な商品。
 model Product {
-  /// Product identifier.
+  /// 商品ID。
   id          String      @id @default(uuid())
-  /// Public product name.
+  /// 商品名。
   name        String
-  /// Current unit price in yen.
+  /// 現在の単価（円）。
   unitPrice   Int         @default(0)
-  /// Whether the product can be ordered.
+  /// 注文可能かどうか。
   isActive    Boolean     @default(true)
-  /// Order lines containing this product.
+  /// この商品を含む注文明細。
   orderItems  OrderItem[]
   @@index([isActive], map: "product_active_idx")
 }
 
-/// A product line belonging to an order.
+/// 注文に含まれる商品明細。
 model OrderItem {
-  /// Order line identifier.
+  /// 注文明細ID。
   id         String  @id @default(uuid())
-  /// Owning order identifier.
+  /// 注文ID。
   orderId    String
-  /// Product identifier.
+  /// 商品ID。
   productId  String
-  /// Number of products ordered.
+  /// 注文数量。
   quantity   Int
-  /// Price captured at order time.
+  /// 注文時点の単価。
   unitPrice  Int
   order      Order   @relation(fields: [orderId], references: [id])
   product    Product @relation(fields: [productId], references: [id])
