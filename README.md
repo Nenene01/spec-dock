@@ -35,7 +35,7 @@ SpecDockは、Prisma・Zod・OpenAPIなど既存の仕様ソースに接続す�
       spec-dock
           ├─ API一覧・詳細
           ├─ DB定義・ER図
-          ├─ Zodスキーマ
+          ├─ データ型
           ├─ Markdown文書
           └─ 不整合レポート
 ```
@@ -65,6 +65,6 @@ npm run studio -- --project examples/order-management --port 4173
 npm run dev -- --project examples/order-management --port 4173
 ```
 
-`dev`はPrisma・Zod・OpenAPI・Markdownを変更するたびに再スキャン・再ビルドします。StudioにはOverview、API operations、Database、Zod schemas、ER diagram、Documentsのビューがあります。
+`dev`はPrisma・Zod・OpenAPI・Markdownを変更するたびに再スキャン・再ビルドします。StudioにはOverview、API operations、データモデル、データ型、ER diagram、Documentsのビューがあります。
 
 生成物は対象プロジェクトの`.specdock/`に出力されます。
