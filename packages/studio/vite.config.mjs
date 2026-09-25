@@ -9,7 +9,7 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       input: resolve("packages/studio/client/main.jsx"),
-      output: { entryFileNames: "studio.js", assetFileNames: "[name][extname]", inlineDynamicImports: true },
+      output: { entryFileNames: "studio.js", assetFileNames: "[name][extname]" },
     },
   },
 });
