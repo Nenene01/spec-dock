@@ -22,3 +22,8 @@ test("diagnostics reports missing local Markdown links", () => {
   const items = diagnostics(model());
   assert.deepEqual(items.filter((item) => item.code === "W003"), [{ code: "W003", level: "warning", message: "文書リンクの参照先が見つかりません: missing.md", source: "docs/orders.md" }]);
 });
+
+test("diagnostics reports an invalid OpenAPI document", () => {
+  const items = diagnostics(model({ openapi: { files: ["openapi.yaml"], operations: [], errors: [{ file: "openapi.yaml", message: "invalid document" }] } }));
+  assert.deepEqual(items.find((item) => item.code === "E005"), { code: "E005", level: "error", message: "OpenAPIを解析できません: invalid document", source: "openapi.yaml" });
+});

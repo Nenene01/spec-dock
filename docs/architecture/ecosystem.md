@@ -7,6 +7,7 @@ MVPでは、既存エコシステムがあり、利用者が導入しやすい�
 - Prisma: Schema解析、DBモデル、Generator基盤
 - Zod: 実行時検証とTypeScript型推論
 - `@asteasolutions/zod-to-openapi`: ZodからOpenAPIを生成
+- `@apidevtools/swagger-parser`: OpenAPIのYAML/JSON Parseと構造化
 - `prisma-markdown`: PrismaからMarkdown・Mermaid ERDを生成する比較・補助候補
 
 次の候補は、対応バージョン、ライセンス、依存関係、保守状況を確認してから採用する。

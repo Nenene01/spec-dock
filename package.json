@@ -18,7 +18,10 @@
     "governance:check": "node ./scripts/governance-check.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^13.0.0"
+  }
 }

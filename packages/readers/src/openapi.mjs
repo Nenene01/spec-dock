@@ -1,28 +1,45 @@
-export function parseOpenApiOperations(text, file) {
+import SwaggerParser from "@apidevtools/swagger-parser";
+
+const methods = new Set(["get", "post", "put", "patch", "delete", "options", "head", "trace"]);
+
+function schemaName(value) {
+  const reference = value?.$ref;
+  if (!reference) return undefined;
+  const match = reference.match(/^#\/components\/schemas\/([^/]+)$/);
+  return match?.[1];
+}
+
+function firstSuccessResponse(operation) {
+  return Object.entries(operation?.responses ?? {})
+    .filter(([status]) => /^2\d\d$/.test(status))
+    .sort(([a], [b]) => a.localeCompare(b))[0];
+}
+
+export function parseOpenApiOperations(document, file) {
   const operations = [];
-  let path;
-  let operation;
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine.replace(/\r$/, "");
-    const pathMatch = line.match(/^\s{2}(\/[^:]+):\s*$/);
-    const methodMatch = line.match(/^\s{4}(get|post|put|patch|delete|options|head|trace):\s*$/i);
-    const summaryMatch = line.match(/^\s{6}summary:\s*(.*)$/);
-    const responseMatch = line.match(/^\s{8}'?([1-5][0-9]{2})'?:\s*$/);
-    const refMatch = line.match(/^\s+\$ref:\s*["']?#\/components\/schemas\/([^"']+)["']?\s*$/);
-    if (pathMatch) {
-      path = pathMatch[1];
-      operation = undefined;
-      continue;
+  for (const [path, pathItem] of Object.entries(document?.paths ?? {})) {
+    for (const [method, operation] of Object.entries(pathItem ?? {})) {
+      if (!methods.has(method) || !operation) continue;
+      const [response, responseDefinition] = firstSuccessResponse(operation) ?? [];
+      const content = responseDefinition?.content?.["application/json"] ?? Object.values(responseDefinition?.content ?? {})[0];
+      operations.push({
+        path,
+        method: method.toUpperCase(),
+        summary: operation.summary ?? operation.description ?? "",
+        response,
+        schema: schemaName(content?.schema),
+        file,
+      });
     }
-    if (methodMatch && path) {
-      if (operation) operations.push({ path, ...operation, file });
-      operation = { method: methodMatch[1].toUpperCase(), summary: "", response: undefined };
-      continue;
-    }
-    if (summaryMatch && operation) operation.summary = summaryMatch[1].trim();
-    if (responseMatch && operation) operation.response = responseMatch[1];
-    if (refMatch && operation) operation.schema = refMatch[1];
   }
-  if (path && operation) operations.push({ path, ...operation, file });
   return operations;
+}
+
+export async function readOpenApiFile(file) {
+  try {
+    const document = await SwaggerParser.parse(file);
+    return { operations: parseOpenApiOperations(document, file), error: null };
+  } catch (error) {
+    return { operations: [], error: error instanceof Error ? error.message : String(error) };
+  }
 }

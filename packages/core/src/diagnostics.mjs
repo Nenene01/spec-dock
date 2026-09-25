@@ -8,6 +8,7 @@ export function diagnostics(model) {
   } else if (!['contract-first', 'code-first'].includes(apiMode)) {
     items.push({ code: "E004", level: "error", message: `API契約モードが不正です: ${apiMode ?? "未設定"}`, source: model.config?.file ?? "project" });
   }
+  for (const error of model.openapi.errors ?? []) items.push({ code: "E005", level: "error", message: `OpenAPIを解析できません: ${error.message}`, source: error.file });
   if (!model.prisma.files.length) items.push({ code: "E001", level: "error", message: "Prisma Schemaを検出できません", source: "prisma" });
   if (!model.openapi.files.length && !model.zod.files.length) items.push({ code: "E002", level: "error", message: "OpenAPIまたはZod Schemaを検出できません", source: "api" });
   if (apiMode === "code-first") {

@@ -13,7 +13,7 @@ test("Prisma reader extracts models, fields, and relations", () => {
 });
 
 test("OpenAPI reader extracts operation and schema reference", () => {
-  const operations = parseOpenApiOperations("  /orders:\n    get:\n      summary: List orders\n        '200':\n          $ref: '#/components/schemas/OrderResponse'", "openapi.yaml");
+  const operations = parseOpenApiOperations({ paths: { "/orders": { get: { summary: "List orders", responses: { "200": { content: { "application/json": { schema: { $ref: "#/components/schemas/OrderResponse" } } } } } } } } }, "openapi.yaml");
   assert.deepEqual(operations[0], { path: "/orders", method: "GET", summary: "List orders", response: "200", schema: "OrderResponse", file: "openapi.yaml" });
 });
 

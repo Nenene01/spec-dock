@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { parseMarkdownDocument } from "../../readers/src/markdown.mjs";
-import { parseOpenApiOperations } from "../../readers/src/openapi.mjs";
+import { readOpenApiFile } from "../../readers/src/openapi.mjs";
 import { buildMermaidEr, parsePrismaModels } from "../../readers/src/prisma.mjs";
 import { parseZodSchemas } from "../../readers/src/zod.mjs";
 import { loadProjectConfig } from "./config.mjs";
@@ -35,7 +35,12 @@ export async function scanProject(project, outDir) {
   const schemas = [];
   const documents = [];
   for (const file of prismaFiles) models.push(...parsePrismaModels(await readText(file), relative(project, file)));
-  for (const file of openapiFiles) operations.push(...parseOpenApiOperations(await readText(file), relative(project, file)));
+  const openapiErrors = [];
+  for (const file of openapiFiles) {
+    const result = await readOpenApiFile(file);
+    operations.push(...result.operations.map((operation) => ({ ...operation, file: relative(project, file) })));
+    if (result.error) openapiErrors.push({ file: relative(project, file), message: result.error });
+  }
   for (const file of zodFiles) schemas.push(...parseZodSchemas(await readText(file), relative(project, file)));
   for (const file of markdownFiles) documents.push(parseMarkdownDocument(await readText(file), relative(project, file)));
   const model = {
@@ -45,7 +50,7 @@ export async function scanProject(project, outDir) {
     config,
     prisma: { files: prismaFiles.map((file) => relative(project, file)), models },
     zod: { files: zodFiles.map((file) => relative(project, file)), schemas },
-    openapi: { files: openapiFiles.map((file) => relative(project, file)), operations },
+    openapi: { files: openapiFiles.map((file) => relative(project, file)), operations, errors: openapiErrors },
     markdown: { files: markdownFiles.map((file) => relative(project, file)), documents },
   };
   model.diagnostics = diagnostics(model);
