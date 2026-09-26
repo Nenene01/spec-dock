@@ -93,5 +93,7 @@ test("build creates a browsable HTML artifact", async () => {
   assert.match(html, /API一覧/);
   assert.match(html, /window.__SPEC_DOCK__/);
   assert.match(html, /erDiagram/);
+  assert.match(html, /rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/);
+  assert.match(await readFile(join(site, "favicon.svg"), "utf8"), /aria-label="SpecDock"/);
   await access(join(site, "schema.mmd"));
 });

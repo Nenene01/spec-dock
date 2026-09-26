@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { createServer } from "node:http";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildMermaidEr } from "../../packages/readers/src/prisma.mjs";
 import { loadScan, scanProject } from "../../packages/core/src/scan.mjs";
 import { renderStudioHtml } from "../../packages/studio/src/render.mjs";
@@ -89,6 +90,7 @@ async function build() {
   const mermaid = buildMermaidEr(model.prisma.models);
   process.env.SPECDOCK_SITE_OUT = siteDir;
   await viteBuild({ configFile: resolve("packages/studio/vite.config.mjs"), logLevel: "error" });
+  await copyFile(fileURLToPath(new URL("../../packages/studio/assets/favicon.svg", import.meta.url)), join(siteDir, "favicon.svg"));
   await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
   await writeFile(join(siteDir, "index.html"), renderStudioHtml(model, mermaid));
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
@@ -105,7 +107,7 @@ async function serve({ watchProject = false } = {}) {
     if (file.includes("..")) return response.writeHead(403).end("Forbidden");
     try {
       const body = await readFile(join(siteDir, file));
-      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".css") ? "text/css; charset=utf-8" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
+      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".css") ? "text/css; charset=utf-8" : file.endsWith(".svg") ? "image/svg+xml" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
       response.writeHead(200, { "content-type": type }).end(body);
     } catch { response.writeHead(404).end("Not found"); }
   });
