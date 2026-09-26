@@ -40,6 +40,10 @@ button:focus-visible,summary:focus-visible,a:focus-visible,.table-scroll:focus-v
 .reader-context-links>span{color:#8b95a7;font-size:12px;margin-right:4px}
 .reader-context-links button{display:inline-flex;align-items:center;gap:9px;border:1px solid #3b4a5c;border-radius:6px;background:#171f2b;color:#c4b5fd;padding:6px 10px;font-size:12px;cursor:pointer}
 .reader-context-links button:hover{border-color:#a78bfa;background:#222c40}
+.doc-table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;margin:16px 0}
+.doc-table-scroll table{width:100%;min-width:520px;margin:0}
+.doc-table-scroll th{white-space:nowrap}
+.doc-table-scroll:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
 .explorer h2,.explorer summary{font-size:12px}
 .explorer details strong{font-size:13px;font-weight:550}
 .explorer details button{min-height:34px}

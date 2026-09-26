@@ -49,6 +49,11 @@ function firstSuccessResponse(operation) {
     .sort(([a], [b]) => a.localeCompare(b))[0];
 }
 
+function resolveResponse(definition, responses) {
+  const match = definition?.$ref?.match(/^#\/components\/responses\/([^/]+)$/);
+  return match ? responses[match[1]] ?? definition : definition;
+}
+
 function schemaFromContent(content, schemas) {
   const media = content?.["application/json"] ?? Object.values(content ?? {})[0];
   return summarizeSchema(media?.schema, schemas);
@@ -83,19 +88,24 @@ function normalizeParameters(parameters, schemas) {
 export function parseOpenApiOperations(document, file) {
   const operations = [];
   const schemas = document?.components?.schemas ?? {};
+  const responseDefinitions = document?.components?.responses ?? {};
   const securitySchemes = document?.components?.securitySchemes ?? {};
   for (const [path, pathItem] of Object.entries(document?.paths ?? {})) {
     for (const [method, operation] of Object.entries(pathItem ?? {})) {
       if (!methods.has(method) || !operation) continue;
-      const [response, responseDefinition] = firstSuccessResponse(operation) ?? [];
+      const [response, rawResponseDefinition] = firstSuccessResponse(operation) ?? [];
+      const responseDefinition = resolveResponse(rawResponseDefinition, responseDefinitions);
       const parameters = normalizeParameters([...(pathItem.parameters ?? []), ...(operation.parameters ?? [])], schemas);
-      const responses = Object.entries(operation.responses ?? {}).map(([status, definition]) => ({
+      const responses = Object.entries(operation.responses ?? {}).map(([status, rawDefinition]) => {
+        const definition = resolveResponse(rawDefinition, responseDefinitions);
+        return ({
         status,
         description: definition.description,
         contentTypes: mediaTypesFromContent(definition.content),
         headers: normalizeHeaders(definition.headers, schemas),
         schema: schemaFromContent(definition.content, schemas),
-      }));
+        });
+      });
       operations.push({
         path,
         method: method.toUpperCase(),

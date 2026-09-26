@@ -21,8 +21,9 @@ export function parseMarkdownDocument(text, file) {
   const title = frontmatter.title || body.match(/^#\s+(.+)$/m)?.[1]?.trim() || file;
   const summary = frontmatter.summary || body.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("#") && !line.startsWith("-") && !line.startsWith("```")) || "";
   const links = [...body.matchAll(/\[[^\]]+\]\(([^)#]+)(?:#[^)]+)?\)/g)].map((match) => match[1].trim()).filter(Boolean);
-  const apiRefs = [...body.matchAll(/\b(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|TRACE)\s+(`?\/[^`\s)]+`?)/g)].map((match) => ({ method: match[1], path: match[2].replaceAll("`", "") }));
-  if (frontmatter.api?.method && frontmatter.api?.path) apiRefs.unshift({ method: frontmatter.api.method.toUpperCase(), path: frontmatter.api.path });
+  const apiRefs = frontmatter.api?.method && frontmatter.api?.path
+    ? [{ method: frontmatter.api.method.toUpperCase(), path: frontmatter.api.path }]
+    : [...body.matchAll(/\b(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|TRACE)\s+(`?\/[^`\s)]+`?)/g)].map((match) => ({ method: match[1], path: match[2].replaceAll("`", "") }));
   const headings = [...body.matchAll(/^(#{2,6})\s+(.+)$/gm)].map((match) => ({ level: match[1].length, title: match[2].trim() }));
   return { title, summary, frontmatter, links, apiRefs, headings, content: text, body, file };
 }

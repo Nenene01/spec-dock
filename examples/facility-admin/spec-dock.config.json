@@ -1,0 +1,15 @@
+{
+  "studio": {
+    "title": "施設予約管理サンプル",
+    "subtitle": "業務・API・データの仕様を確認する"
+  },
+  "api": {
+    "mode": "contract-first"
+  },
+  "sources": {
+    "prisma": ["prisma/schema.prisma"],
+    "openapi": ["openapi.yaml"],
+    "zod": ["src/schemas"],
+    "documents": ["specs/features"]
+  }
+}

@@ -56,6 +56,8 @@ AIエージェントを利用した開発体制は[Agent development loop](docs/
 
 ## 開発
 
+管理画面の設計ソースとAPI別仕様書をまとめた架空の例は[施設予約管理サンプル](examples/facility-admin/README.md)を参照してください。
+
 ```sh
 npm test
 npm run scan -- --project examples/order-management

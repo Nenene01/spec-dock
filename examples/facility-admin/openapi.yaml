@@ -1,0 +1,382 @@
+openapi: 3.0.3
+info:
+  title: 施設予約管理 API（架空サンプル）
+  version: 1.0.0
+  description: 管理画面で施設、予約、お知らせ、CSV取込を扱うための架空のAPI。
+servers:
+  - url: https://api.example.invalid/admin/v1
+    description: 文書用の架空URL。実際の接続先ではありません。
+security:
+  - bearerAuth: []
+tags:
+  - name: 施設
+  - name: 予約
+  - name: お知らせ
+  - name: CSV取込
+paths:
+  /facilities:
+    get:
+      tags: [施設]
+      operationId: listFacilities
+      summary: 施設を検索する
+      description: 認証した担当者の組織に属し、削除されていない施設を返す。
+      parameters:
+        - name: name
+          in: query
+          description: 施設名の部分一致。空文字は条件として扱わない。
+          schema: {type: string, maxLength: 100}
+        - name: status
+          in: query
+          description: 施設の状態。
+          schema: {type: string, enum: [DRAFT, ACTIVE, INACTIVE]}
+        - name: page
+          in: query
+          description: 1から始まるページ番号。
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: limit
+          in: query
+          description: 1ページの最大件数。
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: X-Request-Id
+          in: header
+          description: 問い合わせ用の任意の追跡ID。
+          schema: {type: string, maxLength: 64}
+      responses:
+        '200':
+          description: 施設一覧とページ情報。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FacilityListResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [施設]
+      operationId: createFacility
+      summary: 施設を登録する
+      description: 組織内で一意な施設コードで下書きを登録する。管理者・編集者のみ実行できる。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FacilityCreateRequest'}
+      responses:
+        '201':
+          description: 登録した施設。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FacilityDetailResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /facilities/{facilityId}:
+    get:
+      tags: [施設]
+      operationId: getFacility
+      summary: 施設の詳細を取得する
+      parameters:
+        - name: facilityId
+          in: path
+          required: true
+          description: 施設ID。
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 施設の概要。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FacilityDetailResponse'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /reservations:
+    get:
+      tags: [予約]
+      operationId: listReservations
+      summary: 予約を検索する
+      description: 検索条件をANDで組み合わせ、開始日時の降順で返す。
+      parameters:
+        - name: facilityId
+          in: query
+          description: 指定した施設の予約だけを検索する。
+          schema: {type: string, format: uuid}
+        - name: status
+          in: query
+          description: 予約状態。
+          schema: {type: string, enum: [REQUESTED, CONFIRMED, CANCELLED]}
+        - name: from
+          in: query
+          description: 開始日時の下限。タイムゾーン付きISO 8601形式。
+          schema: {type: string, format: date-time}
+        - name: to
+          in: query
+          description: 開始日時の上限。タイムゾーン付きISO 8601形式。
+          schema: {type: string, format: date-time}
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: 予約一覧とページ情報。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReservationListResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /reservations/{reservationId}:
+    get:
+      tags: [予約]
+      operationId: getReservation
+      summary: 予約の詳細を取得する
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 施設・区画の識別子を含む予約詳細。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReservationDetailResponse'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /reservations/{reservationId}/status:
+    patch:
+      tags: [予約]
+      operationId: changeReservationStatus
+      summary: 予約の状態を変更する
+      description: 表示時の版番号で競合を検出し、監査履歴と同じトランザクションで更新する。
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReservationStatusRequest'}
+      responses:
+        '200':
+          description: 更新後の予約。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReservationDetailResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /announcements:
+    post:
+      tags: [お知らせ]
+      operationId: createAnnouncement
+      summary: お知らせを作成する
+      description: 公開予定日時があれば予約公開、なければ下書きとして保存する。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AnnouncementCreateRequest'}
+      responses:
+        '201':
+          description: 作成したお知らせ。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnnouncementDetailResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /facility-imports:
+    post:
+      tags: [CSV取込]
+      operationId: startFacilityImport
+      summary: 施設CSVの検証・取込ジョブを開始する
+      description: 別工程で受け付けたファイル参照を受け取り、非同期ジョブを作る。既定は検証のみ。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FacilityImportRequest'}
+      responses:
+        '202':
+          description: 受け付けたジョブ。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImportJobResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /facility-imports/{jobId}:
+    get:
+      tags: [CSV取込]
+      operationId: getFacilityImport
+      summary: 施設CSV取込の進行状況を取得する
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: ジョブの状態と件数。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImportJobResponse'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 組織IDと権限を含む管理担当者のアクセストークン。
+  responses:
+    BadRequest:
+      description: 入力値が不正。
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Unauthorized:
+      description: 認証できない。
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Forbidden:
+      description: 操作権限がない。
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    NotFound:
+      description: 対象が見つからない、または組織境界の外にある。
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Conflict:
+      description: 重複または更新競合。
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+  schemas:
+    PageInfo:
+      type: object
+      required: [page, limit, total]
+      properties:
+        page: {type: integer, minimum: 1, description: 現在のページ}
+        limit: {type: integer, minimum: 1, maximum: 100, description: 1ページの件数}
+        total: {type: integer, minimum: 0, description: 検索結果の総件数}
+    FacilityRecord:
+      type: object
+      required: [id, code, name, status, createdAt]
+      properties:
+        id: {type: string, format: uuid, description: 施設ID}
+        code: {type: string, maxLength: 20, description: 施設コード}
+        name: {type: string, maxLength: 100, description: 施設名}
+        status: {type: string, enum: [DRAFT, ACTIVE, INACTIVE], description: 状態}
+        createdAt: {type: string, format: date-time, description: 登録日時}
+    FacilityCreateRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: {type: string, minLength: 2, maxLength: 20, pattern: '^[A-Z0-9-]+$', description: 組織内で一意な施設コード}
+        name: {type: string, minLength: 1, maxLength: 100, description: 施設名}
+    FacilityListResponse:
+      type: object
+      required: [data, pageInfo]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/FacilityRecord'}
+        pageInfo: {$ref: '#/components/schemas/PageInfo'}
+    FacilityDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/FacilityRecord'}
+    ReservationRecord:
+      type: object
+      required: [id, reservationNo, facilityId, spaceId, status, startsAt, endsAt, version]
+      properties:
+        id: {type: string, format: uuid, description: 予約ID}
+        reservationNo: {type: string, maxLength: 32, description: 予約番号}
+        facilityId: {type: string, format: uuid, description: 施設ID}
+        spaceId: {type: string, format: uuid, description: 区画ID}
+        status: {type: string, enum: [REQUESTED, CONFIRMED, CANCELLED], description: 予約状態}
+        startsAt: {type: string, format: date-time, description: 利用開始日時}
+        endsAt: {type: string, format: date-time, description: 利用終了日時}
+        version: {type: integer, minimum: 1, description: 更新競合確認用の版番号}
+    ReservationListResponse:
+      type: object
+      required: [data, pageInfo]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/ReservationRecord'}
+        pageInfo: {$ref: '#/components/schemas/PageInfo'}
+    ReservationDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/ReservationRecord'}
+    ReservationStatusRequest:
+      type: object
+      required: [status, expectedVersion]
+      properties:
+        status: {type: string, enum: [CONFIRMED, CANCELLED], description: 変更後の状態}
+        expectedVersion: {type: integer, minimum: 1, description: 画面が取得した版番号}
+        reason: {type: string, maxLength: 240, description: キャンセル時は必須となる変更理由}
+    AnnouncementCreateRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 120, description: タイトル}
+        body: {type: string, minLength: 1, maxLength: 4000, description: 本文}
+        publishAt: {type: string, format: date-time, description: 公開予定日時}
+    AnnouncementDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, title, status]
+          properties:
+            id: {type: string, format: uuid}
+            title: {type: string}
+            status: {type: string, enum: [DRAFT, SCHEDULED]}
+            publishAt: {type: string, format: date-time}
+    FacilityImportRequest:
+      type: object
+      required: [fileToken]
+      properties:
+        fileToken: {type: string, minLength: 1, maxLength: 120, description: 受付済みファイルの参照}
+        dryRun: {type: boolean, default: true, description: 検証のみ行う}
+    ImportJobResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, status, totalRows, acceptedRows, rejectedRows]
+          properties:
+            id: {type: string, format: uuid, description: ジョブID}
+            status: {type: string, enum: [QUEUED, RUNNING, COMPLETED, FAILED]}
+            totalRows: {type: integer, minimum: 0}
+            acceptedRows: {type: integer, minimum: 0}
+            rejectedRows: {type: integer, minimum: 0}
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string, description: 機械判定用のエラーコード}
+        message: {type: string, description: 閲覧者にも理解できる説明}
+        fields:
+          type: object
+          description: 入力項目ごとのエラー。入力値そのものは含めない。
+          additionalProperties:
+            type: array
+            items: {type: string}

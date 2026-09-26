@@ -32,6 +32,23 @@ test("OpenAPI reader retains field constraints", () => {
   assert.equal(operations[0].requestBody.schema.properties.page.maximum, 100);
 });
 
+test("OpenAPI reader resolves reusable responses", () => {
+  const operations = parseOpenApiOperations({
+    components: {
+      schemas: { Result: { type: "object", properties: { id: { type: "string" } } } },
+      responses: {
+        Success: { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/Result" } } } },
+        BadRequest: { description: "Invalid request", content: { "application/json": { schema: { type: "object" } } } },
+      },
+    },
+    paths: { "/items": { post: { responses: { "201": { $ref: "#/components/responses/Success" }, "400": { $ref: "#/components/responses/BadRequest" } } } } },
+  }, "openapi.yaml");
+  assert.equal(operations[0].schema, "Result");
+  assert.equal(operations[0].responses[0].description, "Created");
+  assert.equal(operations[0].responses[1].description, "Invalid request");
+  assert.equal(operations[0].responses[1].contentTypes[0], "application/json");
+});
+
 test("Zod reader extracts fields and descriptions", () => {
   const schemas = parseZodSchemas('export const OrderResponse = z.object({\n  id: z.string().describe("Order identifier"),\n});', "order.ts");
   assert.equal(schemas[0].name, "OrderResponse");
@@ -44,7 +61,7 @@ test("Markdown reader extracts local links", () => {
 });
 
 test("Markdown reader exposes frontmatter integration keys", () => {
-  const document = parseMarkdownDocument("---\ntitle: Create order\nsummary: Create an order.\napi:\n  method: POST\n  path: /orders\n---\n\n# Ignored title\n\nBody.", "docs/orders.md");
+  const document = parseMarkdownDocument("---\ntitle: Create order\nsummary: Create an order.\napi:\n  method: POST\n  path: /orders\n---\n\n# Ignored title\n\nBody.\n\nPOST /orders?dryRun=true", "docs/orders.md");
   assert.equal(document.title, "Create order");
   assert.equal(document.summary, "Create an order.");
   assert.deepEqual(document.frontmatter.api, { method: "POST", path: "/orders" });

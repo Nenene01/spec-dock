@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OperatorRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum FacilityStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum ReservationStatus {
+  REQUESTED
+  CONFIRMED
+  CANCELLED
+}
+
+enum PublicationStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+enum ImportStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// 管理対象を分離する組織。すべての管理操作は組織境界内で行う。
+model Organization {
+  /// 組織ID。
+  id            String         @id @default(uuid()) @db.Uuid
+  /// 表示名。
+  name          String         @db.VarChar(100)
+  /// 管理担当者。
+  operators     Operator[]
+  /// 施設。
+  facilities    Facility[]
+  /// 予約。
+  reservations  Reservation[]
+  /// お知らせ。
+  announcements Announcement[]
+  /// 取込処理。
+  importJobs    ImportJob[]
+  /// 操作履歴。
+  auditEvents   AuditEvent[]
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@map("organizations")
+}
+
+/// 管理画面を利用する担当者。認証情報そのものはこのサンプルで保持しない。
+model Operator {
+  id            String         @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  /// 担当者の表示名。
+  displayName   String         @db.VarChar(80)
+  /// 組織内で一意なログイン識別子。
+  loginId       String         @db.VarChar(120)
+  /// 操作権限。
+  role          OperatorRole   @default(VIEWER)
+  isActive      Boolean        @default(true)
+  announcements Announcement[]
+  auditEvents   AuditEvent[]
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@unique([organizationId, loginId], map: "operators_org_login_uk")
+  @@index([organizationId, role], map: "operators_org_role_idx")
+  @@map("operators")
+}
+
+/// 予約対象をまとめる施設。
+model Facility {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  /// 組織内の施設コード。
+  code           String         @db.VarChar(20)
+  /// 施設名。
+  name           String         @db.VarChar(100)
+  status         FacilityStatus @default(DRAFT)
+  /// 論理削除日時。通常の検索では除外する。
+  deletedAt      DateTime?      @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+  spaces         Space[]
+  reservations   Reservation[]
+
+  @@unique([organizationId, code], map: "facilities_org_code_uk")
+  @@index([organizationId, status, createdAt], map: "facilities_org_status_created_idx")
+  @@map("facilities")
+}
+
+/// 施設内で予約できる区画。
+model Space {
+  id           String        @id @default(uuid()) @db.Uuid
+  facilityId   String        @db.Uuid
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  /// 施設内の区画コード。
+  code         String        @db.VarChar(20)
+  /// 定員。
+  capacity     Int
+  isAvailable  Boolean       @default(true)
+  reservations Reservation[]
+
+  @@unique([facilityId, code], map: "spaces_facility_code_uk")
+  @@map("spaces")
+}
+
+/// 区画の利用予約。時刻はタイムゾーン付きで保持する。
+model Reservation {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  facilityId     String            @db.Uuid
+  facility       Facility          @relation(fields: [facilityId], references: [id])
+  spaceId        String            @db.Uuid
+  space          Space             @relation(fields: [spaceId], references: [id])
+  /// 組織内の予約番号。
+  reservationNo  String            @db.VarChar(32)
+  status         ReservationStatus @default(REQUESTED)
+  startsAt       DateTime          @db.Timestamptz(3)
+  endsAt         DateTime          @db.Timestamptz(3)
+  /// 更新競合の確認に使う版番号。
+  version        Int               @default(1)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@unique([organizationId, reservationNo], map: "reservations_org_no_uk")
+  @@index([organizationId, status, startsAt], map: "reservations_org_status_start_idx")
+  @@index([spaceId, startsAt], map: "reservations_space_start_idx")
+  @@map("reservations")
+}
+
+/// 管理画面から登録する案内文。
+model Announcement {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  title          String            @db.VarChar(120)
+  body           String            @db.Text
+  status         PublicationStatus @default(DRAFT)
+  publishAt      DateTime?         @db.Timestamptz(3)
+  createdById    String            @db.Uuid
+  createdBy      Operator          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@index([organizationId, status, publishAt], map: "announcements_org_status_publish_idx")
+  @@map("announcements")
+}
+
+/// CSV取込の非同期処理状態。取込データ自体は保持しない。
+model ImportJob {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  status         ImportStatus  @default(QUEUED)
+  totalRows      Int           @default(0)
+  acceptedRows   Int           @default(0)
+  rejectedRows   Int           @default(0)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  completedAt    DateTime?     @db.Timestamptz(3)
+
+  @@index([organizationId, status, createdAt], map: "import_jobs_org_status_created_idx")
+  @@map("import_jobs")
+}
+
+/// 管理操作の監査記録。機微なリクエスト本文は記録しない。
+model AuditEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  actorId        String       @db.Uuid
+  actor          Operator     @relation(fields: [actorId], references: [id])
+  /// 操作の種類。
+  action         String       @db.VarChar(40)
+  /// 対象の種類。
+  targetType     String       @db.VarChar(40)
+  /// 対象ID。
+  targetId       String       @db.Uuid
+  happenedAt     DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, happenedAt], map: "audit_events_org_happened_idx")
+  @@map("audit_events")
+}
