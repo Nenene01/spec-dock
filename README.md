@@ -1,8 +1,10 @@
 # SpecDock
 
-**Source-anchored specifications.** Prisma Schema、OpenAPI、Zod、Markdownに分かれた仕様を、ひとつのStudioでたどるためのツールです。独自の仕様言語へ書き換えず、既存プロジェクトのソースをそのまま参照します。
+**Source-anchored specifications.
+** Prisma Schema、OpenAPI、Zod、Markdownに分かれた仕様を、ひとつのStudioでたどるためのツールです。独自の仕様言語へ書き換えず、既存プロジェクトのソースをそのまま参照します。
 
-仕様を読む人は、APIの入出力からデータ型・データモデル・業務文書へ移動できます。仕様を書く人は、ソース間の不整合をCLIで確認できます。SpecDockは開発中のOSSです。
+APIの入出力からデータ型・データモデル・業務ドキュメントを参照できます。
+仕様を書く人は、ソース間の不整合をCLIで確認できます。SpecDockは開発中のOSSです。
 
 ## できること
 
@@ -13,9 +15,11 @@
 | Prisma Schema | 論理データモデル、フィールド、リレーション、ER図 |
 | Zod | データ型と入力値の検証ルール |
 
-エクスプローラーから項目を開き、タブや左右のペインで並べて確認できます。`check` は読み込んだソースの診断結果を表示し、エラーがあれば終了コード `1` を返します。
-
-Studioの設定からダークテーマ、フォント、文字サイズを変更できます。既定のフォントはMenlo、Hack Nerd Font、Monacoを優先し、日本語にはヒラギノ角ゴシック、ヒラギノ、メイリオをフォールバックとして使用します。左右分割時は中央の区切り線をドラッグ、または選択して左右矢印キーで幅を調整できます。表示設定と幅はブラウザ内に保存されます。
+サイドメニューのエクスプローラーより対象を選択し、タブや左右のペインで並べて確認できます。
+Studio設定よりダークテーマ、フォント、文字サイズを変更できます。
+既定のフォントはMenlo、Hack Nerd Font、Monacoを優先し、日本語にはヒラギノ角ゴシック、ヒラギノ、メイリオをフォールバックとして使用します。
+左右分割時は中央の区切り線をドラッグ、または選択して左右矢印キーで幅を調整できます。
+表示設定と幅はブラウザ内に保存されます。
 
 ## Studioの画面
 
@@ -83,9 +87,12 @@ npm run check -- --project /path/to/your-project --format json
 npm run studio -- --project /path/to/your-project --port 4173
 ```
 
-`init` はソース候補を探し、対話形式で `spec-dock.config.json` を作ります。Studioの表示名、APIのモード、Prisma・OpenAPIのファイル、Zod・Documentsのディレクトリを記録できます。ただし現状の`scan`はプロジェクト内の対象ファイルを探索し、設定した`sources`のパスで解析対象を絞り込む機能はありません。既存の設定ファイルがある場合、上書き前に確認します。設定例は[サンプルの設定ファイル](examples/facility-admin/spec-dock.config.json)を参照してください。
+`init` はソース候補を探し、対話形式で `spec-dock.config.json` を作ります。Studioの表示名、APIのモード、Prisma・OpenAPIのファイル、Zod・Documentsのディレクトリを記録できます。
+ただし現状の`scan`はプロジェクト内の対象ファイルを探索し、設定した`sources`のパスで解析対象を絞り込む機能はありません。
+既存の設定ファイルがある場合、上書き前に確認します。設定例は[サンプルの設定ファイル](examples/facility-admin/spec-dock.config.json)を参照してください。
 
-ビルド成果物は対象プロジェクトの `.specdock/` に保存されます。Studioはソースを編集しません。実際の案件を読み込む場合は、生成物やスクリーンショットを公開しないよう注意してください。
+ビルド成果物は対象プロジェクトの `.specdock/` に保存されます。
+Studioはソースを編集しません。実際の案件を読み込む場合は、生成物やスクリーンショットを公開しないよう注意してください。
 
 ## ソースの扱い
 
@@ -104,12 +111,14 @@ npm run studio -- --project /path/to/your-project --port 4173
 | `npm run studio -- --project <path> --port 4173` | ビルドしてローカルで表示 |
 | `npm run dev -- --project <path> --port 4173` | ソースの変更を監視して再ビルド |
 
-CLIの全コマンドには `--project` で対象を指定できます。`build`・`studio`・`dev` は現状、SpecDockのリポジトリルートから実行してください。開発・検証の詳しい流れは[開発ガイド](docs/guides/development-loop.md)を参照してください。
+CLIの全コマンドには `--project` で対象を指定できます。
+`build`・`studio`・`dev` は現状、SpecDockのリポジトリルートから実行してください。
+開発・検証の詳しい流れは[開発ガイド](docs/guides/development-loop.md)を参照してください。
 
 ## 開発に参加する
 
 不具合報告、使い勝手の提案、文書・サンプルの改善を歓迎します。環境構築、変更時の確認事項、Pull Requestの手順は[CONTRIBUTING.md](CONTRIBUTING.md)にまとめています。
-
-このリポジトリでは、Spec・Architecture・ADR・Guide・Rulesを分けて管理しています。配置と正本の案内は[開発文書の案内](docs/README.md)、開発の共通原則は[CONSTITUTION.md](CONSTITUTION.md)を参照してください。
+このリポジトリでは、Spec・Architecture・ADR・Guide・Rulesを分けて管理しています。
+配置と正本の案内は[開発文書の案内](docs/README.md)、開発の共通原則は[CONSTITUTION.md](CONSTITUTION.md)を参照してください。
 
 AIエージェントを使う開発手順は[Agent development loop](docs/guides/agent-loop.md)にあります。
