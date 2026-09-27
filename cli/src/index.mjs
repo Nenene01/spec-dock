@@ -89,6 +89,7 @@ async function build() {
   process.env.SPECDOCK_SITE_OUT = siteDir;
   await viteBuild({ configFile: resolve("packages/studio/vite.config.mjs"), logLevel: "error" });
   await copyFile(fileURLToPath(new URL("../../packages/studio/assets/favicon.svg", import.meta.url)), join(siteDir, "favicon.svg"));
+  await copyFile(fileURLToPath(new URL("../../packages/studio/assets/specdock-mark.png", import.meta.url)), join(siteDir, "specdock-mark.png"));
   await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
   await writeFile(join(siteDir, "index.html"), renderStudioHtml(model));
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);

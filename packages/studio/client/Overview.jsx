@@ -26,9 +26,12 @@ export default function Overview({ model, open }) {
 
   return <div className="reader-overview">
     <header className="reader-intro">
-      <span className="eyebrow">仕様ガイド</span>
-      <h1>知りたいことから、仕様をたどる。</h1>
-      <p>業務の説明、APIの動き、データの構造をひとつの場所で確認できます。</p>
+      <div className="reader-intro-copy">
+        <span className="eyebrow">仕様ガイド</span>
+        <h1>知りたいことから、仕様をたどる。</h1>
+        <p>業務の説明、APIの動き、データの構造をひとつの場所で確認できます。</p>
+      </div>
+      <img className="reader-intro-mark" src="./specdock-mark.png" alt="" aria-hidden="true" width="112" height="112" />
     </header>
     <div className="reader-section-title"><h2>どこから見ますか？</h2><p>項目を選ぶと、その仕様がタブで開きます。</p></div>
     <div className="reader-entries">

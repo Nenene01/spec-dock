@@ -1,5 +1,7 @@
 # SpecDock
 
+<p align="center"><img src="packages/studio/assets/specdock-mark.png" alt="錨と仕様ドキュメントを組み合わせたSpecDockのシンボル" width="260"></p>
+
 **Source-anchored specifications.
 ** Prisma Schema、OpenAPI、Zod、Markdownに分かれた仕様を、ひとつのStudioでたどるためのツールです。独自の仕様言語へ書き換えず、既存プロジェクトのソースをそのまま参照します。
 

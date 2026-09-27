@@ -116,6 +116,7 @@ test("build creates a browsable HTML artifact", async () => {
   assert.match(html, /href="\.\/main\.css"/);
   assert.match(html, /rel="icon" type="image\/svg\+xml" href="\.\/favicon\.svg"/);
   assert.match(await readFile(join(site, "favicon.svg"), "utf8"), /aria-label="SpecDock"/);
+  await access(join(site, "specdock-mark.png"));
   const studioScript = await readFile(join(site, "studio.js"), "utf8");
   assert.match(studioScript, /Workbench: Color Theme/);
   assert.match(studioScript, /Hack Nerd Font/);

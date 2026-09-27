@@ -50,6 +50,9 @@ button:focus-visible,summary:focus-visible,a:focus-visible,.table-scroll:focus-v
 .editor-tab button{font-size:13px}
 .reader-overview{width:min(100%,1100px);margin:0 auto;padding:16px 0 56px}
 .reader-intro{padding:22px 0 28px;border-bottom:1px solid #263140}
+.reader-intro{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.reader-intro-copy{min-width:0}
+.reader-intro-mark{width:112px;height:112px;object-fit:contain;flex:none}
 .reader-intro h1{font-size:clamp(26px,3vw,38px);line-height:1.35;letter-spacing:-.025em;color:#f3f4f6;margin:10px 0}
 .reader-intro p{font-size:15px;color:#aab3c0;margin:0;line-height:1.75}
 .reader-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:28px 0 15px}
@@ -71,6 +74,7 @@ button:focus-visible,summary:focus-visible,a:focus-visible,.table-scroll:focus-v
 .reader-sources>p{font-size:12px;color:#8b95a7;margin:12px 0}
 .reader-sources .source-catalog{margin-top:15px}
 @media(max-width:650px){.pane-content{padding:16px}.panel{padding:16px}.reader-overview{padding-top:4px}.reader-section-title{display:block}.reader-section-title p{margin-top:5px}.source-catalog-row{grid-template-columns:1fr}}
+@media(max-width:650px){.reader-intro-mark{width:64px;height:64px}.reader-intro{gap:12px}}
 
 /* Appearance preferences are scoped to Studio, including split editor panes. */
 .shell{font-family:var(--studio-font);font-size:calc(14px * var(--studio-scale))}
