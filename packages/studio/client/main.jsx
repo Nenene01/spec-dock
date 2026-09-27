@@ -9,6 +9,7 @@ import Overview from "./Overview.jsx";
 import { appearanceStyles, defaultAppearance, loadAppearance, preferredFontStack, saveAppearance, themeOptions } from "./appearance.mjs";
 import { normalizeSplitRatio, splitGridColumns, splitRatioFromPointer, splitRatioStorageKey } from "./split-layout.mjs";
 import { displayDocumentBody, parseMarkdownBlocks } from "./reader-content.mjs";
+import { buildExplorerGroups, filterExplorerGroups, hasExplorerSearchTerms, isExplorerSearchShortcut } from "./explorer-search.mjs";
 
 let model;
 const esc = (value) => String(value ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -194,19 +195,25 @@ function SettingsPage({ appearance, updateAppearance, resetAppearance }) {
   </div>;
 }
 function ActivityRail({ toggleExplorer, openSettings, settingsActive }) { return <aside className="activity-rail"><button className="active" title="Explorerを表示" aria-label="Explorerを表示" onClick={toggleExplorer}><Icon name="grid"/></button><button className={`rail-settings ${settingsActive ? "active" : ""}`} title="設定" aria-label="設定" onClick={openSettings}><Icon name="settings"/></button></aside>; }
-function Explorer({ route, open, onResizeStart, onClose }) {
+function Explorer({ route, open, onResizeStart, onClose, query, onQueryChange, searchInputRef }) {
   const studio = model.config?.studio || {};
-  const group = (title, name, values) => <details open><summary><Icon name={name}/>{title}<span>{values.length}</span></summary>{values.map((item) => <button className={route === item.href ? "selected" : ""} key={item.href} onClick={() => open(item.href)}><strong>{item.label}</strong>{item.meta && <small>{item.meta}</small>}</button>)}</details>;
+  const groups = useMemo(() => buildExplorerGroups(model), []);
+  const visibleGroups = useMemo(() => filterExplorerGroups(groups, query), [groups, query]);
+  const searching = hasExplorerSearchTerms(query);
+  const resultCount = visibleGroups.reduce((count, group) => count + group.items.length, 0);
+  const group = ({ title, icon, items }) => <details key={`${title}:${query}`} open><summary><Icon name={icon}/>{title}{title !== "ER図" && <span>{items.length}</span>}</summary>{items.map((item) => <button className={route === item.href ? "selected" : ""} key={item.href} onClick={() => open(item.href)}><strong>{item.label}</strong></button>)}</details>;
   return <aside className="explorer">
     <div className="explorer-main">
       <div className="brand"><span>{studio.title || "SpecDock"}<small>{studio.subtitle || "ソース仕様に接続する開発Studio"}</small></span><button className="explorer-close" title="Explorerを閉じる" aria-label="Explorerを閉じる" onClick={onClose}><Icon name="panelLeft"/></button></div>
-      <h2>エクスプローラー</h2>
-      <button className={route === "overview" ? "selected overview-link" : "overview-link"} onClick={() => open("overview")}><Icon name="grid"/><span>概要</span></button>
-      {group("ドキュメント", "doc", model.markdown.documents.map((x, i) => ({ href: `document/${i}`, label: x.title, meta: "" })))}
-      {group("API", "api", model.openapi.operations.map((x, i) => ({ href: `api/${i}`, label: `${x.method} ${x.path}`, meta: "" })))}
-      <details open><summary><Icon name="diagram"/>ER図</summary><button className={route === "er" ? "selected" : ""} onClick={() => open("er")}><strong>ER図</strong></button></details>
-      {group("データモデル", "db", model.prisma.models.map((x, i) => ({ href: `database/${i}`, label: x.name, meta: "" })))}
-      {group("データ型", "code", model.zod.schemas.map((x, i) => ({ href: `zod/${i}`, label: x.name, meta: "" })))}
+      <input ref={searchInputRef} className="explorer-search" type="search" aria-label="仕様を検索" placeholder="仕様を検索…" title="Ctrl+K / ⌘K" value={query} onChange={(event) => onQueryChange(event.target.value)} onKeyDown={(event) => { if (event.key !== "Escape") return; if (query) onQueryChange(""); else event.currentTarget.blur(); event.stopPropagation(); }}/>
+      <p className="explorer-search-hint">`,` 区切りは OR 検索</p>
+      {searching && <p className="explorer-search-status" role="status">{resultCount}件の一致</p>}
+      <div className="explorer-list">
+        <h2>エクスプローラー</h2>
+        {!searching && <button className={route === "overview" ? "selected overview-link" : "overview-link"} onClick={() => open("overview")}><Icon name="grid"/><span>概要</span></button>}
+        {visibleGroups.map(group)}
+        {searching && !resultCount && <p className="explorer-search-empty">一致する仕様がありません。</p>}
+      </div>
     </div>
     <div className="explorer-footer"><button className={route === "settings" ? "selected" : ""} onClick={() => open("settings")} aria-label="設定を開く"><Icon name="settings"/><span>設定</span></button></div>
     <div className="explorer-resizer" onPointerDown={onResizeStart} role="separator" aria-label="Explorerの幅を変更"/>
@@ -253,12 +260,17 @@ function App() {
   const [dragging, setDragging] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [explorerOpen, setExplorerOpen] = useState(() => window.localStorage.getItem("specdock:explorer") !== "closed");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [focusSearch, setFocusSearch] = useState(false);
+  const searchInputRef = useRef(null);
   const [explorerWidth, setExplorerWidth] = useState(240);
   const [resizingExplorer, setResizingExplorer] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [appearance, setAppearance] = useState(() => { try { return loadAppearance(window.localStorage); } catch { return { ...defaultAppearance }; } });
   useEffect(() => { try { saveAppearance(window.localStorage, appearance); } catch {} }, [appearance]);
   useEffect(() => { try { window.localStorage.setItem(splitRatioStorageKey, String(splitRatio)); } catch {} }, [splitRatio]);
+  useEffect(() => { const focusShortcut = (event) => { if (!isExplorerSearchShortcut(event)) return; event.preventDefault(); setExplorerOpen(true); window.localStorage.setItem("specdock:explorer", "open"); setFocusSearch(true); }; window.addEventListener("keydown", focusShortcut); return () => window.removeEventListener("keydown", focusShortcut); }, []);
+  useEffect(() => { if (!focusSearch || !explorerOpen || !searchInputRef.current) return; searchInputRef.current.focus(); searchInputRef.current.select(); setFocusSearch(false); }, [focusSearch, explorerOpen]);
   useEffect(() => { const listener = () => setRoute(decodeURIComponent(location.hash.slice(1))); addEventListener("hashchange", listener); return () => removeEventListener("hashchange", listener); }, []);
   useEffect(() => { if (!contextMenu) return undefined; const dismiss = (event) => { if (!event.target.closest(".tab-context-menu")) setContextMenu(null); }; const escape = (event) => { if (event.key === "Escape") setContextMenu(null); }; window.addEventListener("mousedown", dismiss); window.addEventListener("keydown", escape); return () => { window.removeEventListener("mousedown", dismiss); window.removeEventListener("keydown", escape); }; }, [contextMenu]);
   useEffect(() => { if (!resizingExplorer) return undefined; const move = (event) => setExplorerWidth(Math.min(420, Math.max(160, event.clientX - 44))); const stop = () => setResizingExplorer(false); window.addEventListener("pointermove", move); window.addEventListener("pointerup", stop, { once: true }); return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); }; }, [resizingExplorer]);
@@ -276,7 +288,7 @@ function App() {
   const toggleExplorer = () => setExplorerOpen((value) => { const next = !value; window.localStorage.setItem("specdock:explorer", next ? "open" : "closed"); return next; });
   return <div className={`shell ${resizingExplorer ? "resizing-explorer" : ""} ${resizingPanes ? "resizing-panes" : ""} ${explorerOpen ? "" : "explorer-collapsed"}`} style={{ gridTemplateColumns: `${explorerOpen ? 0 : 44}px ${explorerOpen ? explorerWidth : 0}px minmax(0, 1fr)`, ...appearanceStyles(appearance) }}>
     {explorerOpen ? <span className="shell-placeholder" aria-hidden="true"/> : <ActivityRail toggleExplorer={toggleExplorer} openSettings={() => open("settings")} settingsActive={route === "settings"}/>}
-    {explorerOpen ? <Explorer route={route} open={open} onClose={toggleExplorer} onResizeStart={(event) => { event.preventDefault(); setResizingExplorer(true); }}/> : <span className="shell-placeholder" aria-hidden="true"/>}
+    {explorerOpen ? <Explorer route={route} open={open} onClose={toggleExplorer} onResizeStart={(event) => { event.preventDefault(); setResizingExplorer(true); }} query={searchQuery} onQueryChange={setSearchQuery} searchInputRef={searchInputRef}/> : <span className="shell-placeholder" aria-hidden="true"/>}
     <main className="workspace"><div ref={editorPanesRef} className={`editor-panes ${split !== "none" ? `split-${split}` : ""}`} style={split === "horizontal" ? { gridTemplateColumns: splitGridColumns(splitRatio) } : undefined}>
       {panes.map((pane, index) => {
         const target = dropTarget?.pane === index ? dropTarget.edge : "";
