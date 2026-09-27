@@ -12,4 +12,6 @@ SpecDockの知識は役割ごとに分けます。現在の利用手順は[READM
 
 Studioの未完了項目は[改善タスク](guides/studio-development-tasks.md)で管理し、実装済みの受け入れ条件は[Studio閲覧体験](../specs/features/studio-reader-experience.md)に置きます。AIエージェントへの文書の渡し方は[AI context guide](guides/ai-context.md)、役割と確認手順は[Agent development loop](guides/agent-loop.md)を参照してください。
 
+閉域ネットワークでの共有や任意のホストへの配置は[ホスティングガイド](guides/hosting.md)を参照してください。
+
 新しい文書を増やす前に、この分類に沿って既存の正本を更新できないか確認してください。旧計画や採用候補を現在の機能として記述しません。

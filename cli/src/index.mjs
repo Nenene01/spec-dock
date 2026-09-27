@@ -90,7 +90,7 @@ async function build() {
   await viteBuild({ configFile: resolve("packages/studio/vite.config.mjs"), logLevel: "error" });
   await copyFile(fileURLToPath(new URL("../../packages/studio/assets/favicon.svg", import.meta.url)), join(siteDir, "favicon.svg"));
   await writeFile(join(siteDir, "schema.mmd"), `${mermaid}\n`);
-  await writeFile(join(siteDir, "index.html"), renderStudioHtml(model, mermaid));
+  await writeFile(join(siteDir, "index.html"), renderStudioHtml(model));
   await writeFile(join(siteDir, "model.json"), `${JSON.stringify(model, null, 2)}\n`);
   console.log(`Built SpecDock Studio: ${join(siteDir, "index.html")}`);
 }

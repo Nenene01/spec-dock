@@ -94,6 +94,10 @@ npm run studio -- --project /path/to/your-project --port 4173
 ビルド成果物は対象プロジェクトの `.specdock/` に保存されます。
 Studioはソースを編集しません。実際の案件を読み込む場合は、生成物やスクリーンショットを公開しないよう注意してください。
 
+## 閉域ネットワークで共有する
+
+`npm run build -- --project <path>`で生成した`.specdock/site/`は、特定のクラウドに依存しない静的サイトです。閲覧時に外部CDNは不要ですが、`model.json`には仕様本文が含まれます。VPNや認証を備えたホストへ**成果物全体**を配置してください。ローカル確認用の`studio`コマンドは公開サーバーではありません。手順と確認項目は[ホスティングガイド](docs/guides/hosting.md)を参照してください。
+
 ## ソースの扱い
 
 - Prisma Schemaは論理データモデルを表します。PostgreSQL固有のCHECK・RLS・Triggerなど、実データベースの全定義を検査する機能はありません。

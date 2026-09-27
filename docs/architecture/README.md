@@ -27,6 +27,7 @@ CLIは処理を組み立て、React Studioはブラウザで中間モデルを�
 ## 関連文書
 
 - [Source of truth architecture](source-of-truth.md)
+- [閉域共有のホスティングガイド](../guides/hosting.md)
 - [Ecosystem and migration](ecosystem.md)
 - [Architecture decisions](../adr/README.md)
 - [Implementation rules](../../rules/README.md)

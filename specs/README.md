@@ -19,6 +19,7 @@
 
 - [MVP feature specification](features/mvp.md)
 - [Studio閲覧体験](features/studio-reader-experience.md)
+- [閉域共有の仕様](features/offline-studio.md)
 - [Source catalog](domain/source-catalog.md)
 - [Architecture](../docs/architecture/README.md)
 - [Development guide](../docs/guides/development-loop.md)

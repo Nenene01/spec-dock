@@ -18,6 +18,12 @@ Prisma / Zod / OpenAPI / Markdown
 
 StudioやER図は生成物であり、手編集しません。`check`は実行ごとに再スキャンします。`build`・`serve`・`dev`もソースから再生成します。
 
+## 配布境界
+
+`build`は対象プロジェクトの`.specdock/site/`に静的なStudioを生成します。HTML、CSS、JSとその分割チャンク、`model.json`、`schema.mmd`、faviconを同じ配布単位として扱います。HTMLからの参照は相対パスで、閲覧時にCDNを要求しません。ブラウザが読み込む`model.json`には解析した仕様やMarkdown本文が含まれます。
+
+Studioは閲覧用であり、認証・認可・公開範囲の制御は行いません。閉域配信や外部共有では、配布単位全体に対するアクセス制御をホスト側で設けます。配置・確認手順は[ホスティングガイド](../guides/hosting.md)、利用者から見た条件は[閉域共有の仕様](../../specs/features/offline-studio.md)を参照してください。
+
 ## APIの二重管理を禁止する
 
 APIでは次のどちらか一方だけを正本とします。
