@@ -71,3 +71,79 @@ button:focus-visible,summary:focus-visible,a:focus-visible,.table-scroll:focus-v
 .reader-sources>p{font-size:12px;color:#8b95a7;margin:12px 0}
 .reader-sources .source-catalog{margin-top:15px}
 @media(max-width:650px){.pane-content{padding:16px}.panel{padding:16px}.reader-overview{padding-top:4px}.reader-section-title{display:block}.reader-section-title p{margin-top:5px}.source-catalog-row{grid-template-columns:1fr}}
+
+/* Appearance preferences are scoped to Studio, including split editor panes. */
+.shell{font-family:var(--studio-font);font-size:calc(14px * var(--studio-scale))}
+.pane-content,.doc-code,.doc-fenced-code,.er-model-node,.er-source pre,.pane-content code{font-family:var(--studio-font)}
+.shell button,.shell input,.shell select{font-family:inherit}
+.explorer{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.explorer-main{flex:1;min-height:0;overflow-y:auto;padding:18px 12px 8px}
+.explorer-main>button,.explorer-footer>button{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:6px;background:transparent;color:#d6d9e0;text-align:left;padding:8px 10px;cursor:pointer}
+.explorer-main>button:hover,.explorer-footer>button:hover,.explorer-main>button.selected,.explorer-footer>button.selected{background:#263653;color:#f3f4f6}
+.explorer-main>button.selected,.explorer-footer>button.selected,.explorer details button.selected{background:var(--studio-accent-subtle);color:var(--studio-accent)}
+.explorer-footer{flex-shrink:0;border-top:1px solid #273449;padding:8px 12px 12px}
+.explorer-footer button{font-size:calc(13px * var(--studio-scale))}
+.activity-rail .rail-settings{margin-top:auto}
+.activity-rail button:hover,.activity-rail button.active,.activity-rail button.panel-open{color:var(--studio-accent);border-left-color:var(--studio-accent-strong)}
+.editor-tab.active{border-bottom-color:var(--studio-accent-strong)}
+.editor-pane.active{box-shadow:inset 0 0 0 1px var(--studio-accent-strong)}
+.document-mode-actions button.active{background:var(--studio-accent-subtle);color:var(--studio-accent)}
+.reader-context-links button,.link-button,.type-link,.doc-view a,.doc-view code,.reader-entry button,.relation-kind{color:var(--studio-accent)}
+.reader-context-links button:hover,.reader-entry button:hover:not(:disabled){border-color:var(--studio-accent)}
+.er-handle{background:var(--studio-accent-strong)!important}
+.er-model-header{background:var(--studio-accent-subtle)}
+.er-model-constraints b,.er-canvas .react-flow__edge:hover .react-flow__edge-path{color:var(--studio-accent);stroke:var(--studio-accent)}
+.explorer-resizer:hover,.resizing-explorer .explorer-resizer{background:var(--studio-accent-strong)}
+.shell button:focus-visible,.shell summary:focus-visible,.shell a:focus-visible,.shell input:focus-visible,.shell select:focus-visible,.shell .table-scroll:focus-visible,.shell .doc-table-scroll:focus-visible{outline:2px solid var(--studio-accent);outline-offset:2px}
+.explorer h2,.explorer summary,.contract-grid span,.table-scroll th,.eyebrow{font-size:calc(12px * var(--studio-scale))}
+.brand{font-size:calc(18px * var(--studio-scale))}
+.brand small,.explorer details small,.document-toolbar,.reader-entry-heading span{font-size:calc(11px * var(--studio-scale))}
+.explorer details strong,.explorer-main>button,.editor-tab button,.reader-entry p,.panel h3{font-size:calc(13px * var(--studio-scale))}
+.pane-content,.reader-entry button,.panel td,.panel th,.table-scroll td,.doc-code{font-size:calc(14px * var(--studio-scale))}
+.page-header p,.reader-intro p{font-size:calc(14px * var(--studio-scale))}
+.page-header h1,.hero h1{font-size:calc(30px * var(--studio-scale))}
+.panel h2,.reader-entry h3{font-size:calc(16px * var(--studio-scale))}
+.doc-view{font-size:calc(15px * var(--studio-scale))}
+.doc-view h1{font-size:calc(26px * var(--studio-scale))}
+.doc-view h2{font-size:calc(20px * var(--studio-scale))}
+.doc-view h3{font-size:calc(17px * var(--studio-scale))}
+
+.shell,.workspace,.editor-pane{background:var(--studio-bg);color:var(--studio-text)}
+.editor-panes{background:var(--studio-border)}
+.activity-rail,.explorer,.pane-tabs,.er-header{background:var(--studio-sidebar);border-color:var(--studio-border)}
+.panel,.stat,.reader-entry,.reader-sources,.reader-context-links button,.er-model-node{background:var(--studio-surface);border-color:var(--studio-border);color:var(--studio-text)}
+.editor-tab.active,.contract-grid div,.source-catalog-row,.settings-list{background:var(--studio-surface);border-color:var(--studio-border)}
+.editor-panes,.pane-tabs,.page-header,.explorer details,.explorer-footer,.contract-grid,.table-scroll th,.table-scroll td{border-color:var(--studio-border)}
+.er-workspace,.er-canvas,.er-canvas .react-flow,.doc-code,.doc-mermaid,.doc-fenced-code{background:var(--studio-bg)}
+.shell code,.document-mode-actions,.settings-reset,.tab-context-menu{background:var(--studio-elevated)}
+.pane-content .muted,.page-header p,.reader-intro p,.contract-grid span,.explorer summary,.setting-row p{color:var(--studio-muted)}
+.settings-page{width:min(100%,900px);margin:0 auto;padding-bottom:48px}
+.settings-list{border:1px solid var(--studio-border);border-radius:6px;padding:8px 0;margin:18px 0;background:var(--studio-surface)}
+.setting-row{border-left:2px solid transparent;padding:15px 24px 18px;margin:4px 8px}
+.setting-row:hover{background:var(--studio-elevated)}
+.setting-row:focus-within{border-left-color:var(--studio-accent-strong);background:var(--studio-elevated)}
+.setting-row label{display:block;color:var(--studio-text);font-size:calc(14px * var(--studio-scale));font-weight:650}
+.setting-row p{margin:5px 0 12px;font-size:calc(13px * var(--studio-scale))}
+.setting-row input,.setting-row select{display:block;width:min(100%,560px);height:34px;border:1px solid var(--studio-border);border-radius:4px;background:var(--studio-bg);color:var(--studio-text);padding:5px 9px;font-size:calc(13px * var(--studio-scale))}
+.setting-row input[type=number]{width:160px}
+.setting-row input:hover,.setting-row select:hover{border-color:var(--studio-muted)}
+.setting-row input:focus,.setting-row select:focus{border-color:var(--studio-accent-strong);outline:1px solid var(--studio-accent-strong)}
+.font-preset{margin-top:9px;border:0;background:transparent;color:var(--studio-accent);padding:2px 0;cursor:pointer;text-align:left;font-size:calc(12px * var(--studio-scale))}
+.font-preset:hover{text-decoration:underline;text-underline-offset:2px}
+.settings-reset{border:1px solid var(--studio-border);border-radius:4px;color:var(--studio-text);padding:8px 12px;cursor:pointer}
+.settings-reset:hover{border-color:var(--studio-accent);color:var(--studio-accent)}
+@media(max-width:900px){
+  .shell{display:flex;grid-template-columns:none!important}
+  .shell-placeholder{display:none}
+  .activity-rail{display:flex;flex:none;width:44px}
+  .explorer{display:flex;position:absolute;z-index:20;top:0;bottom:0;left:0;width:min(320px,calc(100vw - 32px));box-shadow:12px 0 28px #0009}
+  .explorer-resizer{display:none}
+  .workspace{flex:1;min-width:0}
+}
+
+.editor-panes.split-horizontal{gap:0}
+.pane-divider{position:relative;z-index:6;min-width:6px;min-height:0;background:var(--studio-border);cursor:col-resize;touch-action:none}
+.pane-divider::after{content:"";position:absolute;inset:0 2px;background:var(--studio-border);transition:background .12s}
+.pane-divider:hover::after,.pane-divider:focus-visible::after,.resizing-panes .pane-divider::after{background:var(--studio-accent-strong)}
+.pane-divider:focus-visible{outline:2px solid var(--studio-accent);outline-offset:-2px}
+.resizing-panes,.resizing-panes *{cursor:col-resize!important;user-select:none!important}

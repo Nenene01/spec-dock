@@ -4,24 +4,25 @@
 
 ## 方針
 
-- 解析対象のソースを正本として扱い、SpecDockは発見・検証・生成を担当する
-- Reader、Core model、Diagnostics、Studio Renderer、CLIを責務ごとに分離する
-- Readerの実装詳細をStudioへ漏らさず、中間モデルを境界にする
-- 依存方向は、UIからReaderへ直接依存せず、CLIから各処理を組み立てる方向にする
+- 解析対象のソースを正本とし、SpecDockは読み込み・診断・閲覧用サイトの生成を担当する
+- Reader、Coreのスキャンと診断、CLI、React Studioを責務ごとに分離する
+- Studioへは中間モデルを渡し、Readerの実装詳細を漏らさない
 
 ## レイヤー
 
 ```text
-CLI / Studio
-    ↓
-Application（scan / check / build）
-    ↓
-Core model / diagnostics
-    ↓
-Readers（Prisma / Zod / OpenAPI / Markdown）
+Prisma / Zod / OpenAPI / Markdown
+                 ↓
+              Readers
+                 ↓
+       Core（scan / diagnostics）
+          ↙              ↘
+   CLI check        CLI build / serve / dev
+                           ↓
+                    React Studio（中間モデルを閲覧）
 ```
 
-4層アーキテクチャや依存方向は個別FeatureのSpecではなく、横断的なArchitectureとして管理する。
+CLIは処理を組み立て、React Studioはブラウザで中間モデルを表示する。静的サイトとER図は再生成可能な成果物である。依存方向はFeatureのSpecではなく、横断的なArchitectureとして管理する。
 
 ## 関連文書
 

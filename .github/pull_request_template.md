@@ -1,22 +1,25 @@
-## Summary
+## 変更内容と根拠
 
-<!-- 変更内容と対象Specを記載してください。 -->
+<!-- 変更目的、関連Issue・Spec、Architecture/ADR/Rulesへの影響を記載してください。 -->
 
-## Agent gate
+## 確認
 
-- [ ] Coding Agent: 実装・テスト結果を報告済み
-- [ ] Review Agent: `blocker` / `major` の未解決指摘なし
-- [ ] Security Agent: `critical` / `high` の未解決リスクなし
-- [ ] 必要なSpec / Architecture / ADR / Rulesを更新済み
+- [ ] 変更に応じてSpec・Architecture・ADR・Rules・READMEを更新した、または不要な理由を記載した
+- [ ] UI変更なら施設予約サンプルで表示・遷移・分割を目視確認した
+- [ ] 公開できない案件情報や秘密情報を差分・画像・ログに含めていない
+- [ ] Review Agentの`blocker` / `major`、Security Agentの`critical` / `high`に未解決事項がない（適用した場合）
 
-## Verification
+## 検証結果
 
 ```sh
 npm run governance:check
 npm test
 npm run check -- --project examples/order-management --format json
+npm run check -- --project examples/facility-admin --format json
+# Studioを変更した場合
+npm run build -- --project examples/facility-admin
 ```
 
-## Risks and follow-ups
+## 未確認事項・リスク
 
-<!-- 未確認事項、リスク、後続タスクを記載してください。 -->
+<!-- 実行しなかった検証と理由、互換性への影響、後続タスクを記載してください。 -->

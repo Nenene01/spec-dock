@@ -6,7 +6,7 @@ import { createInterface } from "node:readline/promises";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildMermaidEr } from "../../packages/readers/src/prisma.mjs";
-import { loadScan, scanProject } from "../../packages/core/src/scan.mjs";
+import { scanProject } from "../../packages/core/src/scan.mjs";
 import { renderStudioHtml } from "../../packages/studio/src/render.mjs";
 import { build as viteBuild } from "vite";
 
@@ -72,10 +72,8 @@ async function scan() {
   return result.model;
 }
 
-async function currentModel() { return (await loadScan(outDir)) ?? await scan(); }
-
 async function check() {
-  const model = await currentModel();
+  const { model } = await scanProject(project, outDir);
   const errors = model.diagnostics.filter((item) => item.level === "error");
   if (format === "json") console.log(JSON.stringify({ diagnostics: model.diagnostics }, null, 2));
   else if (!model.diagnostics.length) console.log("No diagnostics.");

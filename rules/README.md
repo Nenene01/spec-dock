@@ -7,3 +7,5 @@
 - [Documentation rules](documentation.md): Spec、Architecture、ADR、Ruleの使い分け
 
 機能固有の要件は`specs/`、設計理由は`docs/adr/`へ記録します。
+
+実行手順とPR前の確認コマンドは[開発ガイド](../docs/guides/development-loop.md)にまとめ、Rulesには重複させません。

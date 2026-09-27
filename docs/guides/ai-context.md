@@ -1,6 +1,6 @@
 # AI context guide
 
-AI駆動開発では、すべての知識を巨大な仕様書へまとめず、タスクに必要な役割の文書だけをコンテキストへ渡す。
+AI駆動開発では、まず[CONSTITUTION.md](../../CONSTITUTION.md)と[AGENTS.md](../../AGENTS.md)を読み、残りはタスクに必要な役割の文書だけをコンテキストへ渡す。すべての知識を巨大な仕様書へまとめない。
 
 ```mermaid
 flowchart TD

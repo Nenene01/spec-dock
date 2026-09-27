@@ -15,5 +15,5 @@ API契約は、`contract-first`または`code-first`のいずれかをプロジ�
 ## Consequences
 
 - 診断の基準となる方向が明確になる
-- ZodからOpenAPIを生成する既存OSSを利用できる
-- 将来、OpenAPI-firstの検証も同じ中間モデルに追加できる
+- プロジェクト側でZodからOpenAPIを生成するツールを選べる。SpecDockは生成を担当しない
+- 現状はモードに応じた基本診断のみを行う。詳細なフィールド整合検証は別途実装・受け入れ条件が必要

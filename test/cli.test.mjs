@@ -1,22 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, readFile, rm } from "node:fs/promises";
+import { access, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const run = promisify(execFile);
 const root = new URL("..", import.meta.url).pathname;
-const example = join(root, "examples/order-management");
-const output = join(example, ".specdock");
+let fixtureRoot;
+let example;
+let output;
 
 function parseJsonOutput(stdout) {
   const start = stdout.indexOf("{");
   return JSON.parse(stdout.slice(start));
 }
 
+test.before(async () => {
+  fixtureRoot = await mkdtemp(join(tmpdir(), "specdock-cli-test-"));
+  example = join(fixtureRoot, "order-management");
+  output = join(example, ".specdock");
+  await cp(join(root, "examples/order-management"), example, { recursive: true, filter: (path) => !path.split("/").includes(".specdock") });
+});
+
 test.after(async () => {
-  await rm(output, { recursive: true, force: true });
+  if (fixtureRoot) await rm(fixtureRoot, { recursive: true, force: true });
 });
 
 test("scan finds project source categories and Prisma models", async () => {
@@ -50,32 +59,44 @@ test("check supports JSON diagnostics", async () => {
 });
 
 test("contract-first mode does not require OpenAPI references to match Zod", async () => {
-  const project = join(root, "examples/order-management");
+  const project = example;
   const config = join(project, "spec-dock.config.json");
   const original = await readFile(config, "utf8");
-  await import("node:fs/promises").then(({ writeFile }) => writeFile(config, '{"api":{"mode":"contract-first"}}\n'));
+  await writeFile(config, '{"api":{"mode":"contract-first"}}\n');
   try {
-    await rm(output, { recursive: true, force: true });
     const result = await run(process.execPath, [join(root, "cli/src/index.mjs"), "check", "--project", project, "--format", "json"]);
     assert.deepEqual(parseJsonOutput(result.stdout).diagnostics, []);
   } finally {
-    await import("node:fs/promises").then(({ writeFile }) => writeFile(config, original));
+    await writeFile(config, original);
   }
 });
 
-test("invalid project config is reported as an error", async () => {
-  const project = join(root, "examples/order-management");
+test("check re-scans changed config even when scan.json exists", async () => {
+  const project = example;
   const config = join(project, "spec-dock.config.json");
   const original = await readFile(config, "utf8");
-  await import("node:fs/promises").then(({ writeFile }) => writeFile(config, "{\n"));
+  await writeFile(config, "{\n");
   try {
-    await rm(output, { recursive: true, force: true });
     await assert.rejects(
       run(process.execPath, [join(root, "cli/src/index.mjs"), "check", "--project", project, "--format", "json"]),
       (error) => error.code === 1 && parseJsonOutput(error.stdout).diagnostics.some((item) => item.code === "E004"),
     );
   } finally {
-    await import("node:fs/promises").then(({ writeFile }) => writeFile(config, original));
+    await writeFile(config, original);
+  }
+});
+
+test("check re-scans changed OpenAPI after a previous successful scan", async () => {
+  const file = join(example, "openapi.yaml");
+  const original = await readFile(file, "utf8");
+  await writeFile(file, "not-an-openapi-document\n");
+  try {
+    await assert.rejects(
+      run(process.execPath, [join(root, "cli/src/index.mjs"), "check", "--project", example, "--format", "json"]),
+      (error) => error.code === 1 && parseJsonOutput(error.stdout).diagnostics.some((item) => item.code === "E005"),
+    );
+  } finally {
+    await writeFile(file, original);
   }
 });
 
@@ -86,14 +107,14 @@ test("build creates a browsable HTML artifact", async () => {
   const html = await readFile(join(site, "index.html"), "utf8");
   assert.match(html, /SpecDock/);
   assert.match(html, /Customer/);
-  assert.match(html, /API operations/);
-  assert.match(html, /Database/);
-  assert.match(html, /Search specifications/);
-  assert.match(html, /仕様を検索/);
-  assert.match(html, /API一覧/);
+  assert.match(html, /Prisma、Zod、OpenAPI、Markdownの仕様を横断して閲覧するStudio/);
+  assert.doesNotMatch(html, /Search specifications|仕様を検索/);
   assert.match(html, /window.__SPEC_DOCK__/);
   assert.match(html, /erDiagram/);
   assert.match(html, /rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/);
   assert.match(await readFile(join(site, "favicon.svg"), "utf8"), /aria-label="SpecDock"/);
+  assert.match(await readFile(join(site, "studio.js"), "utf8"), /Workbench: Color Theme/);
+  assert.match(await readFile(join(site, "studio.js"), "utf8"), /Hack Nerd Font/);
+  assert.match(await readFile(join(site, "studio.js"), "utf8"), /左右ペインの幅を変更/);
   await access(join(site, "schema.mmd"));
 });

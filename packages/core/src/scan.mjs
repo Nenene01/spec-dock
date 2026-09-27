@@ -72,8 +72,3 @@ export async function scanProject(project, outDir) {
   await writeFile(join(outDir, "scan.json"), `${JSON.stringify(model, null, 2)}\n`);
   return { model, mermaid: buildMermaidEr(models), counts: { prisma: models.length, zod: zodFiles.length, openapi: openapiFiles.length, markdown: markdownFiles.length } };
 }
-
-export async function loadScan(outDir) {
-  try { return JSON.parse(await readFile(join(outDir, "scan.json"), "utf8")); }
-  catch { return null; }
-}

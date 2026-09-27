@@ -16,13 +16,13 @@ Prisma / Zod / OpenAPI / Markdown
        Diagnostics / Studio / Mermaid
 ```
 
-StudioやER図は生成物であり、手編集しません。ソース変更後に再スキャン・再ビルドします。
+StudioやER図は生成物であり、手編集しません。`check`は実行ごとに再スキャンします。`build`・`serve`・`dev`もソースから再生成します。
 
 ## APIの二重管理を禁止する
 
 APIでは次のどちらか一方だけを正本とします。
 
 - `contract-first`: OpenAPIが正本、Zodは実装側の検証スキーマ
-- `code-first`: Zodが正本、OpenAPIは生成物
+- `code-first`: Zodが正本、OpenAPIはプロジェクト側の別ツールで生成する成果物
 
-この選択は、将来のプロジェクト設定で明示します。
+この選択は`spec-dock.config.json`の`api.mode`で明示します。SpecDock自身はOpenAPIを生成しません。現状の診断はソースの有無・解析エラー・参照名などの基本的な確認であり、OpenAPIとZodのフィールド値まで完全に照合するものではありません。

@@ -1,31 +1,15 @@
-# Ecosystem and migration
+# 採用しているエコシステム
 
-## 採用候補
+この文書は、現行実装で使う外部ライブラリの役割を示します。採用の事実は[`package.json`](../../package.json)とロックファイルで確認してください。採用候補や旧リポジトリの移行手順は現行アーキテクチャではないため、ここでは管理しません。
 
-MVPでは、既存エコシステムがあり、利用者が導入しやすい形式・OSSを優先する。
+| 依存 | 用途 |
+| --- | --- |
+| `@apidevtools/swagger-parser` | OpenAPIの読み込み・解析 |
+| React / React DOM | Studioの画面 |
+| `@xyflow/react` / `@dagrejs/dagre` | 操作できるER図と自動配置 |
+| `react-icons` | Studioのアイコン |
+| Vite / `@vitejs/plugin-react` | Studioのビルド |
 
-- Prisma: Schema解析、DBモデル、Generator基盤
-- Zod: 実行時検証とTypeScript型推論
-- `@asteasolutions/zod-to-openapi`: ZodからOpenAPIを生成
-- `@apidevtools/swagger-parser`: OpenAPIのYAML/JSON Parseと構造化
-- `prisma-markdown`: PrismaからMarkdown・Mermaid ERDを生成する比較・補助候補
+Prisma SchemaとZodは入力形式として扱い、このリポジトリの実行時依存としてのPrisma/Zod本体は導入していません。Prisma・Zod・Markdownの読み込み処理は`packages/readers/`にあります。Mermaid文字列も生成しますが、Studioの主なER図表示はXYFlowを使います。
 
-次の候補は、対応バージョン、ライセンス、依存関係、保守状況を確認してから採用する。
-
-- `zod-prisma-types`: PrismaモデルからZodを生成
-- `prisma-erd-generator`: ERD生成。ただしMVPではPuppeteer依存を避け、Mermaid文字列を優先する
-- Hekireki: Studio UXと統合アイデアの参考。中核依存にはしない
-
-採用した依存は、ロックファイルと第三者ライセンス一覧で追跡する。
-
-## 旧リポジトリからの移行
-
-`xmls`、`ddml`、`deml`、`usml`は、思想とテストケースを移行元として扱う。独自DSLの仕様そのものをSpecDockへそのまま移植しない。
-
-移行は次の順序で行う。
-
-1. 各リポジトリの最終状態にタグを付ける
-2. READMEにSpecDockへの移行方針を追記する
-3. 必要に応じてGitHubリポジトリをArchive化する
-4. 有用なサンプルを`spec-dock/examples`へ移植する
-5. 必要な検証ロジックだけを再実装する
+新しい依存を採用するときは、既存の機能で代替できない理由、保守状況、ライセンス、配布時の影響をPRで確認してください。`package.json`に記載しただけで第三者ライセンスの確認が完了したとは扱いません。

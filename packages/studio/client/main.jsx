@@ -1,20 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { HiDatabase, HiDocumentText, HiOutlineCode, HiOutlineEye, HiOutlineShare, HiOutlineViewBoards, HiShare, HiViewGrid } from "react-icons/hi";
+import { HiCog, HiDatabase, HiDocumentText, HiOutlineCode, HiOutlineEye, HiOutlineShare, HiOutlineViewBoards, HiShare, HiViewGrid } from "react-icons/hi";
 import dagre from "@dagrejs/dagre";
 import { Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, Handle, Panel, Position, ReactFlow, ReactFlowProvider, getBezierPath, useEdgesState, useNodesState, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import Overview from "./Overview.jsx";
+import { appearanceStyles, defaultAppearance, loadAppearance, preferredFontStack, saveAppearance, themeOptions } from "./appearance.mjs";
+import { normalizeSplitRatio, splitGridColumns, splitRatioFromPointer, splitRatioStorageKey } from "./split-layout.mjs";
 import { displayDocumentBody, parseMarkdownBlocks } from "./reader-content.mjs";
 
 const model = window.__SPEC_DOCK__;
 const erSource = window.__SPEC_DOCK_ER__;
 const esc = (value) => String(value ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-const iconComponents = { grid: HiViewGrid, doc: HiDocumentText, api: HiShare, db: HiDatabase, diagram: HiOutlineShare, panelLeft: HiOutlineViewBoards, eye: HiOutlineEye, code: HiOutlineCode };
+const iconComponents = { grid: HiViewGrid, doc: HiDocumentText, api: HiShare, db: HiDatabase, diagram: HiOutlineShare, panelLeft: HiOutlineViewBoards, eye: HiOutlineEye, code: HiOutlineCode, settings: HiCog };
 function Icon({ name }) { const Component = iconComponents[name] || HiViewGrid; return <Component className="icon" aria-hidden="true" />; }
 function parseRoute(route) { const [view, id] = (route || "").split("/"); return { view, id }; }
-function titleOf(route) { const { view, id } = parseRoute(route); if (view === "overview") return "概要"; if (view === "er") return "ER図"; if (view === "api") return id ? `${model.openapi.operations[Number(id)]?.method} ${model.openapi.operations[Number(id)]?.path}` : "API"; if (view === "database") return id ? model.prisma.models[Number(id)]?.name : "データモデル"; if (view === "zod") return id ? model.zod.schemas[Number(id)]?.name : "データ型"; return model.markdown.documents[Number(id)]?.title || "Document"; }
+function titleOf(route) { const { view, id } = parseRoute(route); if (view === "overview") return "概要"; if (view === "settings") return "設定"; if (view === "er") return "ER図"; if (view === "api") return id ? `${model.openapi.operations[Number(id)]?.method} ${model.openapi.operations[Number(id)]?.path}` : "API"; if (view === "database") return id ? model.prisma.models[Number(id)]?.name : "データモデル"; if (view === "zod") return id ? model.zod.schemas[Number(id)]?.name : "データ型"; return model.markdown.documents[Number(id)]?.title || "Document"; }
 function Table({ headers, rows, empty = "データはありません" }) { return rows.length ? <div className="table-scroll" tabIndex={0} role="region" aria-label="仕様項目の表"><table><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows}</tbody></table></div> : <p className="empty">{empty}</p>; }
 function schemaType(schema) { if (!schema) return ""; if (schema.type === "array") return `${schemaType(schema.items)}[]`; return schema.ref || schema.name || schema.type || "object"; }
 function DataTypeLink({ name, open }) { const label = String(name || ""); const baseName = label.replace(/(?:\[\]|\?)$/, "").split("/").pop(); const index = model.zod.schemas.findIndex((schema) => schema.name === baseName); return index >= 0 && open ? <button className="type-link" onClick={() => open(`zod/${index}`)}>{label}</button> : <>{label}</>; }
@@ -155,7 +157,7 @@ function ErCanvas() {
   };
   return <div className="er-canvas">
     <ReactFlow nodes={nodes} edges={edges} nodeTypes={erNodeTypes} edgeTypes={erEdgeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeDragStop={() => setNodes((current) => { persist(current); return current; })} nodesConnectable={false} nodesDraggable fitView minZoom={0.1} maxZoom={2.2} proOptions={{ hideAttribution: true }}>
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2b3647" />
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--studio-border)" />
       <Controls showInteractive={false} position="bottom-left" />
       <Panel position="top-right" className="er-flow-panel"><button onClick={relayout}><Icon name="grid" />Auto layout</button></Panel>
     </ReactFlow>
@@ -164,21 +166,100 @@ function ErCanvas() {
 function ErPage() {
   return <section className="er-workspace"><header className="er-header"><div><span className="eyebrow">PRISMA SCHEMA</span><h1>ER図</h1></div></header><ReactFlowProvider><ErCanvas /></ReactFlowProvider></section>;
 }
-function ActivityRail({ toggleExplorer }) { return <aside className="activity-rail"><button className="active" title="Explorerを表示" aria-label="Explorerを表示" onClick={toggleExplorer}><Icon name="grid"/></button></aside>; }
-function Explorer({ route, open, onResizeStart, onClose }) { const studio = model.config?.studio || {}; const group = (title, name, values) => <details open><summary><Icon name={name}/>{title}<span>{values.length}</span></summary>{values.map((item) => <button className={route === item.href ? "selected" : ""} key={item.href} onClick={() => open(item.href)}><strong>{item.label}</strong>{item.meta && <small>{item.meta}</small>}</button>)}</details>; return <aside className="explorer"><div className="brand"><span>{studio.title || "SpecDock"}<small>{studio.subtitle || "ソース仕様に接続する開発Studio"}</small></span><button className="explorer-close" title="Explorerを閉じる" aria-label="Explorerを閉じる" onClick={onClose}><Icon name="panelLeft"/></button></div><h2>エクスプローラー</h2><button className={route === "overview" ? "selected overview-link" : "overview-link"} onClick={() => open("overview")}><Icon name="grid"/><span>概要</span></button>{group("Documents", "doc", model.markdown.documents.map((x, i) => ({ href: `document/${i}`, label: x.title, meta: "" })))}{group("API", "api", model.openapi.operations.map((x, i) => ({ href: `api/${i}`, label: `${x.method} ${x.path}`, meta: "" })))}{group("データ型", "code", model.zod.schemas.map((x, i) => ({ href: `zod/${i}`, label: x.name, meta: "" })))}{group("データモデル", "db", model.prisma.models.map((x, i) => ({ href: `database/${i}`, label: x.name, meta: "" })))}<details open><summary><Icon name="diagram"/>ER図</summary><button className={route === "er" ? "selected" : ""} onClick={() => open("er")}><strong>ER図</strong></button></details><div className="explorer-resizer" onPointerDown={onResizeStart} role="separator" aria-label="Explorerの幅を変更"/></aside>; }
+function SettingsPage({ appearance, updateAppearance, resetAppearance }) {
+  const [sizeDraft, setSizeDraft] = useState(String(appearance.fontSize));
+  useEffect(() => setSizeDraft(String(appearance.fontSize)), [appearance.fontSize]);
+  const updateSize = (value) => { setSizeDraft(value); const size = Number(value); if (Number.isInteger(size) && size >= 10 && size <= 28) updateAppearance({ fontSize: size }); };
+  return <div className="settings-page">
+    <Head eyebrow="STUDIO" title="設定" description="エディタの表示を調整します。変更はこのブラウザに保存されます。"/>
+    <div className="settings-list">
+      <div className="setting-row">
+        <label htmlFor="studio-theme">Workbench: Color Theme</label>
+        <p>Studioで使用する配色を選択します。現在はダークテーマのみ対応しています。</p>
+        <select id="studio-theme" value={appearance.theme} onChange={(event) => updateAppearance({ theme: event.target.value })}>{themeOptions.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}</select>
+      </div>
+      <div className="setting-row">
+        <label htmlFor="studio-font">Editor: Font Family</label>
+        <p>フォントファミリーを指定します。利用できないフォントは次の候補へ切り替わります。</p>
+        <input id="studio-font" type="text" list="studio-font-families" value={appearance.fontFamily} maxLength={180} onChange={(event) => updateAppearance({ fontFamily: event.target.value })} spellCheck={false}/>
+        <datalist id="studio-font-families"><option value="Menlo"/><option value='"Hack Nerd Font"'/><option value="Monaco"/><option value={preferredFontStack}/></datalist>
+        <button className="font-preset" type="button" onClick={() => updateAppearance({ fontFamily: preferredFontStack })}>Menlo / Hack Nerd Font / Monaco を適用</button>
+      </div>
+      <div className="setting-row">
+        <label htmlFor="studio-font-size">Editor: Font Size</label>
+        <p>文字サイズをピクセル単位で指定します（10～28）。</p>
+        <input id="studio-font-size" type="number" min="10" max="28" step="1" value={sizeDraft} onChange={(event) => updateSize(event.target.value)} onBlur={() => setSizeDraft(String(appearance.fontSize))}/>
+      </div>
+    </div>
+    <button className="settings-reset" onClick={() => { resetAppearance(); setSizeDraft(String(defaultAppearance.fontSize)); }}>表示設定を初期値に戻す</button>
+  </div>;
+}
+function ActivityRail({ toggleExplorer, openSettings, settingsActive }) { return <aside className="activity-rail"><button className="active" title="Explorerを表示" aria-label="Explorerを表示" onClick={toggleExplorer}><Icon name="grid"/></button><button className={`rail-settings ${settingsActive ? "active" : ""}`} title="設定" aria-label="設定" onClick={openSettings}><Icon name="settings"/></button></aside>; }
+function Explorer({ route, open, onResizeStart, onClose }) {
+  const studio = model.config?.studio || {};
+  const group = (title, name, values) => <details open><summary><Icon name={name}/>{title}<span>{values.length}</span></summary>{values.map((item) => <button className={route === item.href ? "selected" : ""} key={item.href} onClick={() => open(item.href)}><strong>{item.label}</strong>{item.meta && <small>{item.meta}</small>}</button>)}</details>;
+  return <aside className="explorer">
+    <div className="explorer-main">
+      <div className="brand"><span>{studio.title || "SpecDock"}<small>{studio.subtitle || "ソース仕様に接続する開発Studio"}</small></span><button className="explorer-close" title="Explorerを閉じる" aria-label="Explorerを閉じる" onClick={onClose}><Icon name="panelLeft"/></button></div>
+      <h2>エクスプローラー</h2>
+      <button className={route === "overview" ? "selected overview-link" : "overview-link"} onClick={() => open("overview")}><Icon name="grid"/><span>概要</span></button>
+      {group("ドキュメント", "doc", model.markdown.documents.map((x, i) => ({ href: `document/${i}`, label: x.title, meta: "" })))}
+      {group("API", "api", model.openapi.operations.map((x, i) => ({ href: `api/${i}`, label: `${x.method} ${x.path}`, meta: "" })))}
+      <details open><summary><Icon name="diagram"/>ER図</summary><button className={route === "er" ? "selected" : ""} onClick={() => open("er")}><strong>ER図</strong></button></details>
+      {group("データモデル", "db", model.prisma.models.map((x, i) => ({ href: `database/${i}`, label: x.name, meta: "" })))}
+      {group("データ型", "code", model.zod.schemas.map((x, i) => ({ href: `zod/${i}`, label: x.name, meta: "" })))}
+    </div>
+    <div className="explorer-footer"><button className={route === "settings" ? "selected" : ""} onClick={() => open("settings")} aria-label="設定を開く"><Icon name="settings"/><span>設定</span></button></div>
+    <div className="explorer-resizer" onPointerDown={onResizeStart} role="separator" aria-label="Explorerの幅を変更"/>
+  </aside>;
+}
 function Tabs({ pane, open, close, beginDrag, endDrag, showContextMenu }) { return <div className="editor-tabs">{pane.tabs.map((tab) => <div className={tab === pane.active ? "editor-tab active" : "editor-tab"} draggable onDragStart={(event) => beginDrag(event, tab)} onDragEnd={endDrag} onContextMenu={(event) => showContextMenu(event, tab)} key={tab}><button title={titleOf(tab)} onClick={() => open(tab)}>{titleOf(tab)}</button><button className="close-tab" aria-label={titleOf(tab) + "を閉じる"} onClick={(event) => { event.stopPropagation(); close(tab); }}>×</button></div>)}</div>; }
 function TabContextMenu({ menu, onAction }) { const left = Math.min(menu.x, Math.max(8, window.innerWidth - 228)); const top = Math.min(menu.y, Math.max(8, window.innerHeight - 188)); return <div className="tab-context-menu" style={{ left, top }} onMouseDown={(event) => event.stopPropagation()}><button onClick={() => onAction("close")}>タブを閉じる</button><button onClick={() => onAction("others")} disabled={!menu.hasOthers}>他のタブを閉じる</button><button onClick={() => onAction("right")} disabled={!menu.hasRight}>右側のタブを閉じる</button><button onClick={() => onAction("all")}>すべてのタブを閉じる</button></div>; }
+function PaneDivider({ containerRef, ratio, onChange, onDragStateChange }) {
+  const pointerId = useRef(null);
+  const move = (event) => {
+    const bounds = containerRef.current?.getBoundingClientRect();
+    if (bounds) onChange(splitRatioFromPointer(event.clientX, bounds));
+  };
+  const stop = (event) => {
+    if (pointerId.current !== event.pointerId) return;
+    pointerId.current = null;
+    onDragStateChange(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const handleKeyDown = (event) => {
+    const delta = event.key === "ArrowLeft" ? -2 : event.key === "ArrowRight" ? 2 : 0;
+    if (delta) onChange(normalizeSplitRatio(ratio + delta));
+    else if (event.key === "Home") onChange(20);
+    else if (event.key === "End") onChange(80);
+    else return;
+    event.preventDefault();
+  };
+  return <div className="pane-divider" role="separator" aria-label="左右ペインの幅を変更" aria-orientation="vertical" aria-valuemin={20} aria-valuemax={80} aria-valuenow={ratio} aria-valuetext={`左 ${ratio}%、右 ${100 - ratio}%`} tabIndex={0}
+    onPointerDown={(event) => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); pointerId.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); onDragStateChange(true); move(event); }}
+    onPointerMove={(event) => { if (pointerId.current === event.pointerId) move(event); }}
+    onPointerUp={stop} onPointerCancel={stop}
+    onLostPointerCapture={() => { pointerId.current = null; onDragStateChange(false); }}
+    onKeyDown={handleKeyDown}/>;
+}
 function App() {
-  const [route, setRoute] = useState(decodeURIComponent(location.hash.slice(1) || "overview"));
-  const [panes, setPanes] = useState([{ id: 0, tabs: ["overview"], active: "overview" }]);
+  const initialRoute = decodeURIComponent(location.hash.slice(1) || "overview");
+  const [route, setRoute] = useState(initialRoute);
+  const [panes, setPanes] = useState([{ id: 0, tabs: [initialRoute], active: initialRoute }]);
   const [activePane, setActivePane] = useState(0);
   const [split, setSplit] = useState("none");
+  const [splitRatio, setSplitRatio] = useState(() => { try { return normalizeSplitRatio(window.localStorage.getItem(splitRatioStorageKey)); } catch { return 50; } });
+  const [resizingPanes, setResizingPanes] = useState(false);
+  const editorPanesRef = useRef(null);
   const [dragging, setDragging] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [explorerOpen, setExplorerOpen] = useState(() => window.localStorage.getItem("specdock:explorer") !== "closed");
   const [explorerWidth, setExplorerWidth] = useState(240);
   const [resizingExplorer, setResizingExplorer] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
+  const [appearance, setAppearance] = useState(() => { try { return loadAppearance(window.localStorage); } catch { return { ...defaultAppearance }; } });
+  useEffect(() => { try { saveAppearance(window.localStorage, appearance); } catch {} }, [appearance]);
+  useEffect(() => { try { window.localStorage.setItem(splitRatioStorageKey, String(splitRatio)); } catch {} }, [splitRatio]);
   useEffect(() => { const listener = () => setRoute(decodeURIComponent(location.hash.slice(1))); addEventListener("hashchange", listener); return () => removeEventListener("hashchange", listener); }, []);
   useEffect(() => { if (!contextMenu) return undefined; const dismiss = (event) => { if (!event.target.closest(".tab-context-menu")) setContextMenu(null); }; const escape = (event) => { if (event.key === "Escape") setContextMenu(null); }; window.addEventListener("mousedown", dismiss); window.addEventListener("keydown", escape); return () => { window.removeEventListener("mousedown", dismiss); window.removeEventListener("keydown", escape); }; }, [contextMenu]);
   useEffect(() => { if (!resizingExplorer) return undefined; const move = (event) => setExplorerWidth(Math.min(420, Math.max(160, event.clientX - 44))); const stop = () => setResizingExplorer(false); window.addEventListener("pointermove", move); window.addEventListener("pointerup", stop, { once: true }); return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); }; }, [resizingExplorer]);
@@ -190,10 +271,26 @@ function App() {
   const beginDrag = (event, tab, source = activePane) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", tab); setDragging({ tab, source }); };
   const updateDropTarget = (event, paneIndex) => { event.preventDefault(); if (!dragging) return; const rect = event.currentTarget.getBoundingClientRect(); const x = (event.clientX - rect.left) / rect.width; const edge = panes.length > 1 ? "pane" : (x < .2 ? "left" : x > .8 ? "right" : null); setDropTarget(edge ? { pane: paneIndex, edge } : null); };
   const dropTab = (event, target) => { event.preventDefault(); const data = event.dataTransfer.getData("text/plain"); const drag = dragging || { tab: data, source: activePane }; if (!drag?.tab) return; const rect = event.currentTarget.getBoundingClientRect(); const x = (event.clientX - rect.left) / rect.width; const edge = x < .2 || x > .8; if (edge && panes.length === 1) { setPanes((items) => items.map((pane, index) => { if (index !== drag.source) return pane; const tabs = pane.tabs.filter((item) => item !== drag.tab); return { ...pane, tabs, active: pane.active === drag.tab ? (tabs[tabs.length - 1] || null) : pane.active }; }).concat({ id: 1, tabs: [drag.tab], active: drag.tab })); setSplit("horizontal"); setActivePane(1); setRoute(drag.tab); location.hash = drag.tab; } else moveTab(drag.tab, drag.source, target); setDragging(null); setDropTarget(null); };
-  const renderPage = (target, paneIndex) => { if (!target) return <p className="empty">このペインに開いているタブはありません。</p>; const { view, id } = parseRoute(target); const paneOpen = (next) => open(next, paneIndex); if (view === "overview") return <Overview model={model} open={paneOpen}/>; if (view === "api") return <ApiPage id={id} open={paneOpen}/>; if (view === "database") return <DatabasePage id={id} open={paneOpen}/>; if (view === "zod") return <ZodPage id={id}/>; if (view === "document") return <DocumentPage id={id} open={paneOpen}/>; if (view === "er") return <ErPage/>; return <Overview model={model} open={paneOpen}/>; };
+  const renderPage = (target, paneIndex) => { if (!target) return <p className="empty">このペインに開いているタブはありません。</p>; const { view, id } = parseRoute(target); const paneOpen = (next) => open(next, paneIndex); if (view === "overview") return <Overview model={model} open={paneOpen}/>; if (view === "settings") return <SettingsPage appearance={appearance} updateAppearance={(change) => setAppearance((current) => ({ ...current, ...change }))} resetAppearance={() => setAppearance({ ...defaultAppearance })}/>; if (view === "api") return <ApiPage id={id} open={paneOpen}/>; if (view === "database") return <DatabasePage id={id} open={paneOpen}/>; if (view === "zod") return <ZodPage id={id}/>; if (view === "document") return <DocumentPage id={id} open={paneOpen}/>; if (view === "er") return <ErPage/>; return <Overview model={model} open={paneOpen}/>; };
   const showContextMenu = (event, tab, paneIndex) => { event.preventDefault(); const pane = panes[paneIndex]; const tabIndex = pane?.tabs.indexOf(tab) ?? -1; setContextMenu({ x: event.clientX, y: event.clientY, tab, paneIndex, hasOthers: Boolean(pane && pane.tabs.length > 1), hasRight: Boolean(pane && tabIndex >= 0 && tabIndex < pane.tabs.length - 1) }); };
   const handleContextAction = (action) => { if (!contextMenu) return; const pane = panes[contextMenu.paneIndex]; if (!pane) return; const tabIndex = pane.tabs.indexOf(contextMenu.tab); if (action === "close") close(contextMenu.tab, contextMenu.paneIndex); if (action === "others") closeTabs(pane.tabs.filter((tab) => tab !== contextMenu.tab), contextMenu.paneIndex); if (action === "right") closeTabs(pane.tabs.slice(tabIndex + 1), contextMenu.paneIndex); if (action === "all") closeTabs(pane.tabs, contextMenu.paneIndex); setContextMenu(null); };
   const toggleExplorer = () => setExplorerOpen((value) => { const next = !value; window.localStorage.setItem("specdock:explorer", next ? "open" : "closed"); return next; });
-  return <div className={`shell ${resizingExplorer ? "resizing-explorer" : ""} ${explorerOpen ? "" : "explorer-collapsed"}`} style={{ gridTemplateColumns: `${explorerOpen ? 0 : 44}px ${explorerOpen ? explorerWidth : 0}px minmax(0, 1fr)` }}>{explorerOpen ? <span className="shell-placeholder" aria-hidden="true"/> : <ActivityRail toggleExplorer={toggleExplorer}/>} {explorerOpen ? <Explorer route={route} open={open} onClose={toggleExplorer} onResizeStart={(event) => { event.preventDefault(); setResizingExplorer(true); }}/> : <span className="shell-placeholder" aria-hidden="true"/>}<main className="workspace"><div className={`editor-panes ${split !== "none" ? `split-${split}` : ""}`}>{panes.map((pane, index) => { const target = dropTarget?.pane === index ? dropTarget.edge : ""; return <section className={`${index === activePane ? "editor-pane active" : "editor-pane"} ${target ? `drop-${target}` : ""}`} onClick={() => selectPane(index)} onDragOver={(event) => updateDropTarget(event, index)} onDragLeave={() => setDropTarget(null)} onDrop={(event) => dropTab(event, index)} key={pane.id}><div className="pane-tabs"><Tabs pane={pane} open={(next) => open(next, index)} close={(tab) => close(tab, index)} beginDrag={(event, tab) => beginDrag(event, tab, index)} endDrag={() => { setDragging(null); setDropTarget(null); }} showContextMenu={(event, tab) => showContextMenu(event, tab, index)}/><span className="drop-hint">左右の端へドロップして分割</span></div><div className="pane-content">{renderPage(pane.active, index)}</div></section>; })}</div></main>{contextMenu && <TabContextMenu menu={contextMenu} onAction={handleContextAction}/>}</div>;
+  return <div className={`shell ${resizingExplorer ? "resizing-explorer" : ""} ${resizingPanes ? "resizing-panes" : ""} ${explorerOpen ? "" : "explorer-collapsed"}`} style={{ gridTemplateColumns: `${explorerOpen ? 0 : 44}px ${explorerOpen ? explorerWidth : 0}px minmax(0, 1fr)`, ...appearanceStyles(appearance) }}>
+    {explorerOpen ? <span className="shell-placeholder" aria-hidden="true"/> : <ActivityRail toggleExplorer={toggleExplorer} openSettings={() => open("settings")} settingsActive={route === "settings"}/>}
+    {explorerOpen ? <Explorer route={route} open={open} onClose={toggleExplorer} onResizeStart={(event) => { event.preventDefault(); setResizingExplorer(true); }}/> : <span className="shell-placeholder" aria-hidden="true"/>}
+    <main className="workspace"><div ref={editorPanesRef} className={`editor-panes ${split !== "none" ? `split-${split}` : ""}`} style={split === "horizontal" ? { gridTemplateColumns: splitGridColumns(splitRatio) } : undefined}>
+      {panes.map((pane, index) => {
+        const target = dropTarget?.pane === index ? dropTarget.edge : "";
+        return <React.Fragment key={pane.id}>
+          {split === "horizontal" && index === 1 && <PaneDivider containerRef={editorPanesRef} ratio={splitRatio} onChange={setSplitRatio} onDragStateChange={setResizingPanes}/>}
+          <section className={`${index === activePane ? "editor-pane active" : "editor-pane"} ${target ? `drop-${target}` : ""}`} onClick={() => selectPane(index)} onDragOver={(event) => updateDropTarget(event, index)} onDragLeave={() => setDropTarget(null)} onDrop={(event) => dropTab(event, index)}>
+            <div className="pane-tabs"><Tabs pane={pane} open={(next) => open(next, index)} close={(tab) => close(tab, index)} beginDrag={(event, tab) => beginDrag(event, tab, index)} endDrag={() => { setDragging(null); setDropTarget(null); }} showContextMenu={(event, tab) => showContextMenu(event, tab, index)}/><span className="drop-hint">左右の端へドロップして分割</span></div>
+            <div className="pane-content">{renderPage(pane.active, index)}</div>
+          </section>
+        </React.Fragment>;
+      })}
+    </div></main>
+    {contextMenu && <TabContextMenu menu={contextMenu} onAction={handleContextAction}/>}
+  </div>;
 }
 createRoot(document.getElementById("root")).render(<App/>);

@@ -14,6 +14,8 @@ Security Agent
 Merge decision
 ```
 
+これは役割分担を示す運用例であり、CIがエージェントを自動実行するという意味ではありません。人間のレビュー担当者が同じ観点を確認しても構いません。マージの判断は人間が行います。
+
 ## 役割の境界
 
 | 役割 | 主な責務 | 完了条件 |
@@ -45,8 +47,8 @@ Security Agentは、Review Agentの承認を前提にせず、秘密情報・入
 次のすべてを満たした場合のみマージする。
 
 - Coding Agentの検証が成功している
-- Review Agentに未解決の`blocker` / `major`がない
-- Security Agentに未解決の`critical` / `high`がない
+- Review Agentまたは人間のレビューで未解決の`blocker` / `major`がない
+- Security Agentまたは人間のセキュリティ確認で未解決の`critical` / `high`がない
 - 必要なSpec・ADR・Rulesの更新が済んでいる
 
 ## エージェント間の受け渡し
