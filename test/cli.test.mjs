@@ -100,6 +100,28 @@ test("check re-scans changed OpenAPI after a previous successful scan", async ()
   }
 });
 
+test("external config limits sources, supports an API filename, and permits no Zod", async () => {
+  const config = join(fixtureRoot, "scoped-config.json");
+  const scopedOutput = join(fixtureRoot, "scoped-output");
+  await cp(join(example, "openapi.yaml"), join(example, "admin-api.yaml"));
+  await writeFile(config, JSON.stringify({
+    api: { mode: "contract-first" },
+    sources: {
+      prisma: ["prisma/schema.prisma"],
+      openapi: ["admin-api.yaml"],
+      zod: [],
+      documents: ["specs/features/api/order-create.md"],
+    },
+  }));
+  await run(process.execPath, [join(root, "cli/src/index.mjs"), "scan", "--project", example, "--config", config, "--out", scopedOutput]);
+  const model = JSON.parse(await readFile(join(scopedOutput, "scan.json"), "utf8"));
+  assert.deepEqual(model.openapi.files, ["admin-api.yaml"]);
+  assert.deepEqual(model.zod.files, []);
+  assert.deepEqual(model.markdown.files, ["specs/features/api/order-create.md"]);
+  assert.equal(model.prisma.files.length, 1);
+  assert.equal(model.diagnostics.filter((item) => item.level === "error").length, 0);
+});
+
 test("build creates a browsable HTML artifact", async () => {
   const site = join(output, "site");
   await run(process.execPath, [join(root, "cli/src/index.mjs"), "build", "--project", example]);

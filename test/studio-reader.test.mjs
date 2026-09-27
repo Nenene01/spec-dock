@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { displayDocumentBody, parseMarkdownBlocks } from "../packages/studio/client/reader-content.mjs";
+
+test("reader content uses the available pane width", () => {
+  const css = readFileSync(new URL("../packages/studio/client/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.pane-content>\.page-header[^{}]*\{width:100%;margin-left:0;margin-right:0\}/);
+  assert.match(css, /\.doc-view\{width:100%;/);
+  assert.match(css, /\.reader-overview\{width:100%;margin:0;/);
+  assert.match(css, /\.settings-page\{width:100%;margin:0;/);
+});
 
 test("document view omits a duplicated frontmatter title and summary", () => {
   const document = {

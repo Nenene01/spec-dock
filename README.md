@@ -90,7 +90,7 @@ npm run studio -- --project /path/to/your-project --port 4173
 ```
 
 `init` はソース候補を探し、対話形式で `spec-dock.config.json` を作ります。Studioの表示名、APIのモード、Prisma・OpenAPIのファイル、Zod・Documentsのディレクトリを記録できます。
-ただし現状の`scan`はプロジェクト内の対象ファイルを探索し、設定した`sources`のパスで解析対象を絞り込む機能はありません。
+`sources`には対象ファイルまたはディレクトリを指定でき、指定した種類はその範囲だけを解析します。空配列ならその種類を解析しません。設定ファイルを対象プロジェクトの外に置く場合は`--config <file>`を指定できます。生成先も`--out <path>`で変更できます。
 既存の設定ファイルがある場合、上書き前に確認します。設定例は[サンプルの設定ファイル](examples/facility-admin/spec-dock.config.json)を参照してください。
 
 ビルド成果物は対象プロジェクトの `.specdock/` に保存されます。

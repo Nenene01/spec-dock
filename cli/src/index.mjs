@@ -12,6 +12,7 @@ import { build as viteBuild } from "vite";
 
 const project = resolve(option("--project") ?? process.cwd());
 const outDir = resolve(option("--out") ?? join(project, ".specdock"));
+const configPath = option("--config");
 const format = option("--format") ?? "human";
 const command = process.argv[2] ?? "help";
 
@@ -62,7 +63,7 @@ async function init() {
 }
 
 async function scan() {
-  const result = await scanProject(project, outDir);
+  const result = await scanProject(project, outDir, configPath);
   console.log(`Scanned ${project}`);
   console.log(`  Prisma models: ${result.counts.prisma}`);
   console.log(`  Zod files: ${result.counts.zod}`);
@@ -73,7 +74,7 @@ async function scan() {
 }
 
 async function check() {
-  const { model } = await scanProject(project, outDir);
+  const { model } = await scanProject(project, outDir, configPath);
   const errors = model.diagnostics.filter((item) => item.level === "error");
   if (format === "json") console.log(JSON.stringify({ diagnostics: model.diagnostics }, null, 2));
   else if (!model.diagnostics.length) console.log("No diagnostics.");
@@ -106,7 +107,7 @@ async function serve({ watchProject = false } = {}) {
     if (file.includes("..")) return response.writeHead(403).end("Forbidden");
     try {
       const body = await readFile(join(siteDir, file));
-      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".css") ? "text/css; charset=utf-8" : file.endsWith(".svg") ? "image/svg+xml" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
+      const type = file.endsWith(".html") ? "text/html; charset=utf-8" : file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".css") ? "text/css; charset=utf-8" : file.endsWith(".svg") ? "image/svg+xml" : file.endsWith(".png") ? "image/png" : file.endsWith(".mmd") ? "text/plain; charset=utf-8" : "application/json; charset=utf-8";
       response.writeHead(200, { "content-type": type }).end(body);
     } catch { response.writeHead(404).end("Not found"); }
   });
@@ -127,7 +128,7 @@ async function serve({ watchProject = false } = {}) {
 }
 
 function help() {
-  console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock init  [--project <path>] [--force]\n  specdock scan  [--project <path>] [--out <path>]\n  specdock check [--project <path>] [--format human|json]\n  specdock build [--project <path>] [--out <path>] [--site-out <path>]\n  specdock serve [--project <path>] [--port <number>]\n  specdock dev   [--project <path>] [--port <number>]`);
+  console.log(`SpecDock — Source-anchored specifications\n\nUsage:\n  specdock init  [--project <path>] [--force]\n  specdock scan  [--project <path>] [--config <file>] [--out <path>]\n  specdock check [--project <path>] [--config <file>] [--format human|json]\n  specdock build [--project <path>] [--config <file>] [--out <path>] [--site-out <path>]\n  specdock serve [--project <path>] [--config <file>] [--out <path>] [--site-out <path>] [--port <number>]\n  specdock dev   [--project <path>] [--config <file>] [--out <path>] [--site-out <path>] [--port <number>]`);
 }
 
 if (command === "init") await init();

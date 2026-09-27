@@ -23,13 +23,23 @@ async function readText(path) {
   try { return await readFile(path, "utf8"); } catch { return ""; }
 }
 
-export async function scanProject(project, outDir) {
+function selectedFiles(files, project, selections) {
+  if (!Array.isArray(selections)) return files;
+  const paths = selections.map((value) => String(value).replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/$/, ""));
+  return files.filter((file) => {
+    const path = relative(project, file).replace(/\\/g, "/");
+    return paths.some((selection) => path === selection || path.startsWith(`${selection}/`));
+  });
+}
+
+export async function scanProject(project, outDir, configPath) {
   const files = await walk(project);
-  const config = await loadProjectConfig(project);
-  const prismaFiles = files.filter((file) => file.endsWith(".prisma"));
-  const zodFiles = files.filter((file) => /\.(ts|tsx|js|jsx)$/.test(file) && /(schema|contract|api)/i.test(file));
-  const openapiFiles = files.filter((file) => /(^|\/)(openapi|api)\.(ya?ml|json)$/i.test(file));
-  const markdownFiles = files.filter((file) => /\.md$/i.test(file));
+  const config = await loadProjectConfig(project, configPath);
+  const sources = config.sources ?? {};
+  const prismaFiles = selectedFiles(files.filter((file) => file.endsWith(".prisma")), project, sources.prisma);
+  const zodFiles = selectedFiles(files.filter((file) => /\.(ts|tsx|js|jsx)$/.test(file) && /(schema|contract|api)/i.test(file)), project, sources.zod);
+  const openapiFiles = selectedFiles(files.filter((file) => Array.isArray(sources.openapi) ? /\.(ya?ml|json)$/i.test(file) : /(^|\/)(openapi|api)\.(ya?ml|json)$/i.test(file)), project, sources.openapi);
+  const markdownFiles = selectedFiles(files.filter((file) => /\.md$/i.test(file)), project, sources.documents);
   const models = [];
   const prismaSources = [];
   const operations = [];
